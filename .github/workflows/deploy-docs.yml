@@ -1,0 +1,23 @@
+name: Deploy MkDocs
+
+on:
+  push:
+    branches:
+      - docs
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.x
+      - name: Instalar MkDocs Material
+        run: pip install mkdocs-material
+      - name: Fazer o Deploy para o GitHub Pages
+        run: mkdocs gh-deploy --force

@@ -1,0 +1,8 @@
+site_name: LicitaRadar
+site_url: https://lianeiv.github.io/LicitaRadar/
+theme:
+  name: material
+  language: pt-BR
+  features:
+    - navigation.tabs
+    - navigation.sections
