@@ -1,10 +1,9 @@
 {
+  "name": "licitaradar",
+  "private": true,
   "scripts": {
-    "dev": "tsx watch src/server.ts"
-  },
-  "devDependencies": {
-    "autoprefixer": "^10.6.1",
-    "postcss": "^8.5.29",
-    "tailwindcss": "^4.3.3"
+    "dev": "docker compose up --build",
+    "lint": "npm --prefix client run lint && npm --prefix server run lint",
+    "build": "npm --prefix client run build && npm --prefix server run build"
   }
 }
