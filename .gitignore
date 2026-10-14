@@ -1,9 +1,13 @@
-cat << EOF > .gitignore
 node_modules/
-client/node_modules/
-server/node_modules/
 dist/
-client/dist/
+
 .env
+.env.*
+!.env.example
+
 .firebase/
-EOF
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+.DS_Store
