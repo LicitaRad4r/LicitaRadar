@@ -1,18 +1,22 @@
 {
   "name": "server",
   "version": "1.0.0",
+  "private": true,
   "type": "module",
-  "main": "index.js",
   "scripts": {
-    "dev": "tsx watch src/server.ts"
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "lint": "oxlint"
   },
   "dependencies": {
-    "fastify": "^...",
-    "zod": "^..."
+    "fastify": "^5.12.5",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@types/node": "^...",
-    "tsx": "^...",
-    "typescript": "^..."
+    "@types/node": "^26.6.5",
+    "oxlint": "^1.81.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
   }
 }
