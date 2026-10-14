@@ -1,23 +1,35 @@
 # Quem é chamado automaticamente para revisar cada parte do repositório.
 # A última regra que casar com o arquivo é a que vale.
-# Substitua os @usuarios pelos usuários do GitHub de cada papel.
+# Basta a aprovação de UM dos donos listados na linha.
+#
+# Tech Lead: @lianeiv | PO: @mariajulia-senaa | DevOps: @GGdornelas
+# QA: @kauantarchetti | Frontend: @jpnunes2210 | Backend: @LuisFelipe311
 
 # Padrão: Tech Lead
 *                       @lianeiv
 
 # Frontend
-/client/                @lianeiv
+/client/                @jpnunes2210 @lianeiv
 
 # Backend
-/server/                @lianeiv
+/server/                @LuisFelipe311 @lianeiv
+
+# Testes
+*.test.*                @kauantarchetti @lianeiv
+*.spec.*                @kauantarchetti @lianeiv
+/tests/                 @kauantarchetti @lianeiv
 
 # Infra / DevOps
-/docker-compose.yml     @lianeiv
-/infra/                 @lianeiv
-/firebase.json          @lianeiv
-/firestore.rules        @lianeiv
-/.github/               @lianeiv
-/.env.example           @lianeiv
+/docker-compose.yml     @GGdornelas @lianeiv
+/infra/                 @GGdornelas @lianeiv
+/firebase.json          @GGdornelas @lianeiv
+/firestore.rules        @GGdornelas @lianeiv
+/.github/               @GGdornelas @lianeiv
+/.env.example           @GGdornelas @lianeiv
+**/Dockerfile           @GGdornelas @lianeiv
 
-# Documentação (PO)
-/docs/                  @lianeiv
+# Documentação de produto (PO)
+/docs/                  @mariajulia-senaa @lianeiv
+
+# Decisões de arquitetura (Tech Lead)
+/docs/adr/              @lianeiv
