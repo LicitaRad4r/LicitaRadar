@@ -1,0 +1,23 @@
+# Quem é chamado automaticamente para revisar cada parte do repositório.
+# A última regra que casar com o arquivo é a que vale.
+# Substitua os @usuarios pelos usuários do GitHub de cada papel.
+
+# Padrão: Tech Lead
+*                       @lianeiv
+
+# Frontend
+/client/                @lianeiv
+
+# Backend
+/server/                @lianeiv
+
+# Infra / DevOps
+/docker-compose.yml     @lianeiv
+/infra/                 @lianeiv
+/firebase.json          @lianeiv
+/firestore.rules        @lianeiv
+/.github/               @lianeiv
+/.env.example           @lianeiv
+
+# Documentação (PO)
+/docs/                  @lianeiv
