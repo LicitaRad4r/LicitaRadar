@@ -1,0 +1,35 @@
+# Quem é chamado automaticamente para revisar cada parte do repositório.
+# A última regra que casar com o arquivo é a que vale.
+# Basta a aprovação de UM dos donos listados na linha.
+#
+# Tech Lead: @lianeiv | PO: @mariajulia-senaa | DevOps: @GGdornelas
+# QA: @kauantarchetti | Frontend: @jpnunes2210 | Backend: @LuisFelipe311
+
+# Padrão: Tech Lead
+*                       @lianeiv
+
+# Frontend
+/client/                @jpnunes2210 @lianeiv
+
+# Backend
+/server/                @LuisFelipe311 @lianeiv
+
+# Testes
+*.test.*                @kauantarchetti @lianeiv
+*.spec.*                @kauantarchetti @lianeiv
+/tests/                 @kauantarchetti @lianeiv
+
+# Infra / DevOps
+/docker-compose.yml     @GGdornelas @lianeiv
+/infra/                 @GGdornelas @lianeiv
+/firebase.json          @GGdornelas @lianeiv
+/firestore.rules        @GGdornelas @lianeiv
+/.github/               @GGdornelas @lianeiv
+/.env.example           @GGdornelas @lianeiv
+**/Dockerfile           @GGdornelas @lianeiv
+
+# Documentação de produto (PO)
+/docs/                  @mariajulia-senaa @lianeiv
+
+# Decisões de arquitetura (Tech Lead)
+/docs/adr/              @lianeiv
