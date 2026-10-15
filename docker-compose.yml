@@ -42,6 +42,7 @@ services:
     build: ./client
     environment:
       VITE_API_URL: ${VITE_API_URL:-http://localhost:3333}
+      VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY:-demo-api-key}
       VITE_FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-demo-licitaradar}
       VITE_FIREBASE_AUTH_EMULATOR_URL: ${VITE_FIREBASE_AUTH_EMULATOR_URL:-http://localhost:9099}
       VITE_FIRESTORE_EMULATOR_HOST: ${VITE_FIRESTORE_EMULATOR_HOST:-localhost:8080}
