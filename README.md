@@ -5,7 +5,7 @@
 Pré-requisito: [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 
 ```bash
-git clone https://github.com/lianeiv/LicitaRadar.git
+git clone https://github.com/LicitaRad4r/LicitaRadar.git
 cd LicitaRadar
 docker compose up --build
 ```
