@@ -1,0 +1,775 @@
+openapi: 3.1.0
+info:
+  title: LicitaRadar API
+  version: 0.1.0
+  description: |
+    Contrato de interface (rascunho v0.1) da API do LicitaRadar. Ainda não está implementado:
+
+
+    Convenções
+    - Corpo e resposta em JSON. Datas em ISO 8601 (`date` ou `date-time`, UTC). Valores em reais (BRL), como número.
+    - Todas as rotas de negócio ficam sob `/v1` e exigem `Authorization: Bearer <ID token do Firebase Auth>`.
+      Só `/health` é público.
+    - Os dados são sempre da empresa do usuário autenticado (derivada do token). Não existe `empresaId` na URL.
+      Um recurso de outra empresa responde `404`, como se não existisse.
+    - Erros seguem o formato `Erro`. Listas são paginadas com `pagina` e `tamanho`.
+    - Logs e respostas de erro não incluem dados pessoais.
+
+servers:
+  - url: http://localhost:3333
+    description: Desenvolvimento local (docker compose)
+tags:
+  - name: Infra
+    description: Verificação de saúde da API.
+  - name: Perfil
+    description: Filtros fixos da empresa (Perfil de Fornecedor).
+  - name: Feed
+    description: Editais do PNCP ranqueados por aderência ao perfil.
+  - name: Editais
+    description: Detalhe, feedback e acompanhamento de um edital.
+  - name: Certidões
+    description: Controle de validade das certidões da empresa.
+  - name: Alertas
+    description: Avisos de prazo de edital, certidão perto de vencer e novas oportunidades.
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      operationId: obterSaude
+      tags: [Infra]
+      summary: Verifica se a API está no ar
+      security: []
+      responses:
+        '200':
+          description: API no ar.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+  /v1/perfil:
+    get:
+      operationId: obterPerfil
+      tags: [Perfil]
+      summary: Lê o Perfil de Fornecedor da empresa
+      description: Se o perfil ainda não foi configurado, devolve os campos vazios (`ufs` vazio significa nacional).
+      responses:
+        '200':
+          description: Perfil atual.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Perfil'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+    put:
+      operationId: salvarPerfil
+      tags: [Perfil]
+      summary: Salva o Perfil de Fornecedor (substitui o anterior)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Perfil'
+      responses:
+        '200':
+          description: Perfil salvo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Perfil'
+        '400':
+          $ref: '#/components/responses/Validacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+  /v1/feed:
+    get:
+      operationId: listarFeed
+      tags: [Feed]
+      summary: Lista editais ranqueados por aderência
+      description: |
+        Aplica o Perfil de Fornecedor e, por cima, os filtros de refinamento enviados na consulta
+        (que não alteram o perfil salvo). Ordenado por `score`, do maior para o menor.
+        Editais descartados não aparecem.
+      parameters:
+        - name: termo
+          in: query
+          description: Termo-chave temporário (soma-se aos termos do perfil).
+          schema:
+            type: string
+            minLength: 2
+        - name: uf
+          in: query
+          description: Restringe a estas UFs (repetir o parâmetro para várias).
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/Uf'
+        - name: valorMinimo
+          in: query
+          schema:
+            type: number
+            minimum: 0
+        - name: valorMaximo
+          in: query
+          schema:
+            type: number
+            minimum: 0
+        - name: publicadoDe
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: publicadoAte
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: limiteDe
+          in: query
+          description: Data limite de envio de propostas, a partir de.
+          schema:
+            type: string
+            format: date
+        - name: limiteAte
+          in: query
+          description: Data limite de envio de propostas, até.
+          schema:
+            type: string
+            format: date
+        - name: faixa
+          in: query
+          schema:
+            $ref: '#/components/schemas/Faixa'
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Tamanho'
+      responses:
+        '200':
+          description: Página do feed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPagina'
+        '400':
+          $ref: '#/components/responses/Validacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+  /v1/editais/{editalId}:
+    get:
+      operationId: obterEdital
+      tags: [Editais]
+      summary: Detalha um edital
+      parameters:
+        - $ref: '#/components/parameters/EditalId'
+      responses:
+        '200':
+          description: Edital com a nota calculada para o perfil da empresa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EditalDetalhe'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+  /v1/editais/{editalId}/feedback:
+    put:
+      operationId: registrarFeedback
+      tags: [Editais]
+      summary: Marca o edital como relevante ou irrelevante
+      description: Alimenta a métrica da demo (quantos dos 10 primeiros resultados o usuário considera úteis).
+      parameters:
+        - $ref: '#/components/parameters/EditalId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [valor]
+              properties:
+                valor:
+                  $ref: '#/components/schemas/Feedback'
+      responses:
+        '200':
+          description: Marcação registrada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [editalId, valor, atualizadoEm]
+                properties:
+                  editalId:
+                    type: string
+                  valor:
+                    $ref: '#/components/schemas/Feedback'
+                  atualizadoEm:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/Validacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    delete:
+      operationId: removerFeedback
+      tags: [Editais]
+      summary: Remove a marcação de relevância
+      parameters:
+        - $ref: '#/components/parameters/EditalId'
+      responses:
+        '204':
+          description: Marcação removida.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+  /v1/editais/{editalId}/acompanhamento:
+    put:
+      operationId: acompanharEdital
+      tags: [Editais]
+      summary: Passa a acompanhar o edital ou atualiza as etapas de preparação
+      description: |
+        Idempotente. Sem `etapas` no corpo, o backend cria as etapas padrão de preparação (proposta).
+        Com `etapas`, substitui a lista.
+      parameters:
+        - $ref: '#/components/parameters/EditalId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                etapas:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Etapa'
+      responses:
+        '200':
+          description: Acompanhamento atual.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Acompanhamento'
+        '400':
+          $ref: '#/components/responses/Validacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    delete:
+      operationId: deixarDeAcompanharEdital
+      tags: [Editais]
+      summary: Deixa de acompanhar o edital
+      parameters:
+        - $ref: '#/components/parameters/EditalId'
+      responses:
+        '204':
+          description: Acompanhamento removido.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+  /v1/acompanhamentos:
+    get:
+      operationId: listarAcompanhamentos
+      tags: [Editais]
+      summary: Lista os editais acompanhados pela empresa
+      description: Ordenado pela data limite de envio de propostas, do mais próximo ao mais distante.
+      parameters:
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Tamanho'
+      responses:
+        '200':
+          description: Página de acompanhamentos.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [itens, pagina, tamanho, total]
+                properties:
+                  itens:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Acompanhamento'
+                  pagina:
+                    type: integer
+                  tamanho:
+                    type: integer
+                  total:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+  /v1/certidoes:
+    get:
+      operationId: listarCertidoes
+      tags: [Certidões]
+      summary: Lista as certidões da empresa
+      responses:
+        '200':
+          description: Certidões cadastradas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [itens]
+                properties:
+                  itens:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Certidao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+    post:
+      operationId: criarCertidao
+      tags: [Certidões]
+      summary: Cadastra uma certidão
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CertidaoEntrada'
+      responses:
+        '201':
+          description: Certidão criada.
+          headers:
+            Location:
+              description: Caminho da certidão criada.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Certidao'
+        '400':
+          $ref: '#/components/responses/Validacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+  /v1/certidoes/{certidaoId}:
+    patch:
+      operationId: atualizarCertidao
+      tags: [Certidões]
+      summary: Atualiza campos de uma certidão (por exemplo, a nova validade)
+      parameters:
+        - $ref: '#/components/parameters/CertidaoId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CertidaoAtualizacao'
+      responses:
+        '200':
+          description: Certidão atualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Certidao'
+        '400':
+          $ref: '#/components/responses/Validacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    delete:
+      operationId: removerCertidao
+      tags: [Certidões]
+      summary: Remove uma certidão
+      parameters:
+        - $ref: '#/components/parameters/CertidaoId'
+      responses:
+        '204':
+          description: Certidão removida.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+  /v1/alertas:
+    get:
+      operationId: listarAlertas
+      tags: [Alertas]
+      summary: Lista os alertas da empresa
+      description: Mais recentes primeiro.
+      parameters:
+        - name: tipo
+          in: query
+          schema:
+            $ref: '#/components/schemas/AlertaTipo'
+        - name: lido
+          in: query
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Tamanho'
+      responses:
+        '200':
+          description: Página de alertas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [itens, pagina, tamanho, total]
+                properties:
+                  itens:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Alerta'
+                  pagina:
+                    type: integer
+                  tamanho:
+                    type: integer
+                  total:
+                    type: integer
+        '400':
+          $ref: '#/components/responses/Validacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+  /v1/alertas/{alertaId}:
+    patch:
+      operationId: atualizarAlerta
+      tags: [Alertas]
+      summary: Marca um alerta como lido ou não lido
+      parameters:
+        - name: alertaId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lido]
+              properties:
+                lido:
+                  type: boolean
+      responses:
+        '200':
+          description: Alerta atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alerta'
+        '400':
+          $ref: '#/components/responses/Validacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: ID token do Firebase Auth (no desenvolvimento, emitido pelo emulador de Auth).
+  parameters:
+    Pagina:
+      name: pagina
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    Tamanho:
+      name: tamanho
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    EditalId:
+      name: editalId
+      in: path
+      required: true
+      description: Número de controle do PNCP.
+      schema:
+        type: string
+    CertidaoId:
+      name: certidaoId
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    Validacao:
+      description: Dados inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    NaoAutenticado:
+      description: Token ausente, inválido ou expirado.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    NaoEncontrado:
+      description: Recurso inexistente (ou de outra empresa).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+  schemas:
+    Health:
+      type: object
+      required: [status, timestamp]
+      properties:
+        status:
+          type: string
+          const: ok
+        timestamp:
+          type: string
+          format: date-time
+    Erro:
+      type: object
+      required: [codigo, mensagem]
+      properties:
+        codigo:
+          type: string
+          description: Código estável para o frontend tratar (por exemplo, VALIDACAO, NAO_AUTENTICADO, NAO_ENCONTRADO).
+        mensagem:
+          type: string
+        detalhes:
+          type: array
+          items:
+            type: object
+            required: [campo, mensagem]
+            properties:
+              campo:
+                type: string
+              mensagem:
+                type: string
+    Uf:
+      type: string
+      pattern: '^[A-Z]{2}$'
+      examples: [DF]
+    Faixa:
+      type: string
+      enum: [alta, media]
+      description: Alta aderência (topo do feed) ou média (oportunidade parcial, meio do feed).
+    Feedback:
+      type: string
+      enum: [relevante, irrelevante]
+    Segmento:
+      type: string
+      description: Macrocategoria de atuação (lista inicial, pode crescer).
+      enum: [saude, educacao, ti, construcao_civil, servicos_gerais]
+    Modalidade:
+      type: string
+      description: Modalidade de licitação (lista inicial, opcional no MVP).
+      enum: [pregao_eletronico, concorrencia, dispensa]
+    Criterio:
+      type: string
+      description: Critério do perfil atendido pelo edital (vira tag visual no feed).
+      enum: [termo, uf, valor, prazo, segmento, modalidade]
+    Perfil:
+      type: object
+      properties:
+        ufs:
+          type: array
+          description: Vazio significa nacional (todo o Brasil).
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Uf'
+        termosChave:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            minLength: 2
+        segmentos:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Segmento'
+        modalidades:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Modalidade'
+        valorMinimo:
+          type: [number, 'null']
+          minimum: 0
+        valorMaximo:
+          type: [number, 'null']
+          minimum: 0
+        prazoMinimoDiasUteis:
+          type: [integer, 'null']
+          minimum: 0
+          description: Oculta editais com prazo de envio menor que isto (proposta de exemplo do filtros.md é 3).
+    EditalResumo:
+      type: object
+      required: [id, orgao, objeto, uf, dataLimiteProposta]
+      properties:
+        id:
+          type: string
+          description: Número de controle do PNCP.
+        orgao:
+          type: string
+        objeto:
+          type: string
+        modalidade:
+          type: string
+        uf:
+          $ref: '#/components/schemas/Uf'
+        municipio:
+          type: [string, 'null']
+        valorEstimado:
+          type: [number, 'null']
+        dataPublicacao:
+          type: string
+          format: date-time
+        dataLimiteProposta:
+          type: string
+          format: date-time
+        linkPncp:
+          type: string
+          format: uri
+    FeedItem:
+      allOf:
+        - $ref: '#/components/schemas/EditalResumo'
+        - type: object
+          required: [score, faixa, criteriosAtendidos, diasParaEncerrar]
+          properties:
+            score:
+              type: integer
+              minimum: 0
+              maximum: 100
+            faixa:
+              $ref: '#/components/schemas/Faixa'
+            criteriosAtendidos:
+              type: array
+              items:
+                $ref: '#/components/schemas/Criterio'
+            diasParaEncerrar:
+              type: integer
+              minimum: 0
+            feedback:
+              oneOf:
+                - $ref: '#/components/schemas/Feedback'
+                - type: 'null'
+            acompanhando:
+              type: boolean
+    FeedPagina:
+      type: object
+      required: [itens, pagina, tamanho, total]
+      properties:
+        itens:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedItem'
+        pagina:
+          type: integer
+        tamanho:
+          type: integer
+        total:
+          type: integer
+    EditalDetalhe:
+      allOf:
+        - $ref: '#/components/schemas/FeedItem'
+        - type: object
+          properties:
+            descricao:
+              type: string
+    Etapa:
+      type: object
+      required: [titulo, concluida]
+      properties:
+        titulo:
+          type: string
+          minLength: 1
+        concluida:
+          type: boolean
+    Acompanhamento:
+      type: object
+      required: [editalId, edital, etapas, atualizadoEm]
+      properties:
+        editalId:
+          type: string
+        edital:
+          $ref: '#/components/schemas/EditalResumo'
+        etapas:
+          type: array
+          items:
+            $ref: '#/components/schemas/Etapa'
+        atualizadoEm:
+          type: string
+          format: date-time
+    CertidaoTipo:
+      type: string
+      description: Lista inicial de tipos (pode crescer).
+      enum: [federal, fgts, trabalhista, estadual, municipal, outra]
+    CertidaoStatus:
+      type: string
+      description: |
+        Calculado pelo backend a partir de `dataValidade`. A janela de "vence_em_breve"
+        é um parâmetro a definir (proposta: 30 dias).
+      enum: [valida, vence_em_breve, vencida]
+    CertidaoEntrada:
+      type: object
+      required: [tipo, dataValidade]
+      properties:
+        tipo:
+          $ref: '#/components/schemas/CertidaoTipo'
+        descricao:
+          type: string
+        dataValidade:
+          type: string
+          format: date
+    CertidaoAtualizacao:
+      type: object
+      minProperties: 1
+      properties:
+        tipo:
+          $ref: '#/components/schemas/CertidaoTipo'
+        descricao:
+          type: string
+        dataValidade:
+          type: string
+          format: date
+    Certidao:
+      allOf:
+        - $ref: '#/components/schemas/CertidaoEntrada'
+        - type: object
+          required: [id, status]
+          properties:
+            id:
+              type: string
+            status:
+              $ref: '#/components/schemas/CertidaoStatus'
+    AlertaTipo:
+      type: string
+      description: |
+        prazo_edital: aviso 48 h antes do prazo de um edital acompanhado.
+        certidao_vencendo: certidão perto de vencer.
+        nova_oportunidade: edital de alta aderência recém-ingerido.
+      enum: [prazo_edital, certidao_vencendo, nova_oportunidade]
+    Alerta:
+      type: object
+      required: [id, tipo, titulo, criadoEm, lido]
+      properties:
+        id:
+          type: string
+        tipo:
+          $ref: '#/components/schemas/AlertaTipo'
+        titulo:
+          type: string
+        mensagem:
+          type: string
+        editalId:
+          type: [string, 'null']
+        certidaoId:
+          type: [string, 'null']
+        criadoEm:
+          type: string
+          format: date-time
+        lido:
+          type: boolean
