@@ -32,6 +32,22 @@ cd client && npm ci && npm run lint && npm run build
 cd server && npm ci && npm run lint && npm run build
 ```
 
+## Security Rules (Firestore deny-all)
+
+O Firestore está com rules **deny-all**: o browser não lê nem escreve dados
+direto. Todo acesso passa pela API (Admin SDK). Ver
+[ADR-0001](docs/arquitetura/decisoes_adrs/0001-firestore-deny-all.md).
+
+Teste CT-SEG-010:
+
+```bash
+# Com o Compose já no ar (recomendado no dia a dia):
+npm run test:firestore-rules:docker
+
+# Ou sobe o emulador via firebase-tools (precisa de JDK 21):
+npm run test:firestore-rules
+```
+
 ## Fluxo de trabalho
 
 - Ninguém faz push direto na `main`: crie uma branch e abra um Pull Request.

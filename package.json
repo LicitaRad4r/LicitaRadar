@@ -4,6 +4,8 @@
   "scripts": {
     "dev": "docker compose up --build",
     "lint": "npm --prefix client run lint && npm --prefix server run lint",
-    "build": "npm --prefix client run build && npm --prefix server run build"
+    "build": "npm --prefix client run build && npm --prefix server run build",
+    "test:firestore-rules": "npm --prefix tests/firestore-rules run test:with-emulator",
+    "test:firestore-rules:docker": "docker compose up -d --wait firebase && FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm --prefix tests/firestore-rules test"
   }
 }

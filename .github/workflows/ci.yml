@@ -44,6 +44,26 @@ jobs:
       - run: npm run lint
       - run: npm run build
 
+  firestore-rules:
+    name: firestore rules (deny-all)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/firestore-rules/package-lock.json
+      - name: Install and test Security Rules
+        working-directory: tests/firestore-rules
+        run: |
+          npm ci
+          npm run test:with-emulator
+
   compose:
     name: docker compose config
     runs-on: ubuntu-latest

@@ -18,6 +18,7 @@
 *.test.*                @kauantarchetti @lianeiv
 *.spec.*                @kauantarchetti @lianeiv
 /tests/                 @kauantarchetti @lianeiv
+/tests/firestore-rules/ @GGdornelas @kauantarchetti @lianeiv
 
 # Infra / DevOps
 /docker-compose.yml     @GGdornelas @lianeiv
@@ -32,4 +33,4 @@
 /docs/                  @mariajulia-senaa @lianeiv
 
 # Decisões de arquitetura (Tech Lead)
-/docs/adr/              @lianeiv
+/docs/arquitetura/      @lianeiv
