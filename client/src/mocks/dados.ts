@@ -140,6 +140,60 @@ const editaisBase: EditalBase[] = [
   },
 ]
 
+/** Mais editais gerados para o feed ter mais de uma página. */
+const orgaosExtras = [
+  ['Ministério da Educação', 'DF', 'Brasília'],
+  ['Prefeitura de Aparecida de Goiânia', 'GO', 'Aparecida de Goiânia'],
+  ['Instituto Federal de Goiás', 'GO', 'Goiânia'],
+  ['Secretaria de Saúde do DF', 'DF', 'Brasília'],
+  ['Prefeitura de Uberlândia', 'MG', 'Uberlândia'],
+  ['Universidade Federal de Goiás', 'GO', 'Goiânia'],
+  ['Câmara Legislativa do DF', 'DF', 'Brasília'],
+  ['Prefeitura de Luziânia', 'GO', 'Luziânia'],
+] as const
+
+const objetosExtras = [
+  'Aquisição de switches e roteadores para a rede corporativa',
+  'Contratação de solução de backup em nuvem',
+  'Fornecimento de licenças de antivírus corporativo',
+  'Aquisição de projetores multimídia para salas de aula',
+  'Serviço de desenvolvimento e manutenção de sistemas web',
+  'Aquisição de leitores de código de barras e impressoras térmicas',
+  'Locação de computadores com suporte técnico incluso',
+  'Contratação de link de internet dedicado',
+  'Aquisição de tablets para agentes comunitários de saúde',
+  'Serviço de cabeamento estruturado em prédio administrativo',
+  'Fornecimento de cartuchos e toners',
+  'Aquisição de servidores de rack e storage',
+  'Contratação de treinamento em segurança da informação',
+  'Aquisição de webcams e headsets para teleatendimento',
+  'Implantação de sistema de protocolo eletrônico',
+  'Aquisição de nobreaks para o data center',
+] as const
+
+const criteriosPossiveis = ['termo', 'uf', 'valor', 'prazo', 'segmento', 'modalidade'] as const
+const modalidades = ['pregao_eletronico', 'concorrencia', 'dispensa'] as const
+
+for (let i = 0; i < objetosExtras.length; i++) {
+  const [orgao, uf, municipio] = orgaosExtras[i % orgaosExtras.length]
+  const score = 72 - i * 3
+  editaisBase.push({
+    id: `${String(10_000_000_000_000 + i * 7_919_311).padStart(14, '0')}-1-${String(400 + i).padStart(6, '0')}-2026`,
+    orgao,
+    objeto: objetosExtras[i],
+    modalidade: modalidades[i % modalidades.length],
+    uf,
+    municipio,
+    valorEstimado: i % 5 === 4 ? null : 40_000 + ((i * 137_000) % 1_900_000),
+    dataPublicacao: emDias(-(i % 9) - 1).toISOString(),
+    diasAtePrazo: 3 + ((i * 5) % 25),
+    linkPncp: 'https://pncp.gov.br/app/editais',
+    score,
+    faixa: score >= 70 ? 'alta' : 'media',
+    criteriosAtendidos: criteriosPossiveis.slice(0, Math.max(1, 4 - Math.floor(i / 4))),
+  })
+}
+
 const perfilInicial: Perfil = {
   ufs: ['DF', 'GO'],
   termosChave: ['notebook', 'computador', 'suporte técnico', 'software'],
