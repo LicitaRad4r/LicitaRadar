@@ -1,17 +1,11 @@
 rules_version = '2';
 
+// Deny-all: o navegador nunca lê nem escreve direto no Firestore.
+// Todo acesso a dados passa pela API.
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function autenticacaoEmpresa(empresaId) {
-      return request.auth != null && request.auth.token.empresaId == empresaId;
-    }
-
-    match /certidoes/{certidoesId} {
-      allow read, delete: if autenticacaoEmpresa(resource.data.empresaId);
-      allow create : if autenticacaoEmpresa(request.resource.data.empresaId);
-      allow update: if autenticacaoEmpresa(resource.data.empresaId)
-                    && request.resource.data.empresaId == resource.data.empresaId;
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

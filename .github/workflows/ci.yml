@@ -28,7 +28,7 @@ jobs:
       - run: npm run build
 
   server:
-    name: server (lint + build + testes)
+    name: server (lint + build)
     runs-on: ubuntu-latest
     defaults:
       run:
