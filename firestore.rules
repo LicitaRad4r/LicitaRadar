@@ -1,5 +1,7 @@
 rules_version = '2';
 
+// Deny-all: o navegador nunca lê nem escreve direto no Firestore.
+// Todo acesso a dados passa pela API.
 service cloud.firestore {
   match /databases/{database}/documents {
     match /{document=**} {
