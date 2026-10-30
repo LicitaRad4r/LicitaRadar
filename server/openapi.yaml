@@ -27,6 +27,7 @@ info:
     - Novo `403` com `EMPRESA_NAO_CONFIGURADA` nas rotas de negócio, exceto as de perfil.
     - `Perfil` ganha o campo somente leitura `empresaId`.
     - `Erro.codigo` passa a ter valores fixos (`VALIDACAO`, `NAO_AUTENTICADO`, `EMPRESA_NAO_CONFIGURADA`, `NAO_ENCONTRADO`).
+    - `GET /v1/feed` passa a devolver `totalIngeridos` (pedido do frontend, PR #8).
 
 servers:
   - url: http://localhost:3333
@@ -723,7 +724,7 @@ components:
               type: boolean
     FeedPagina:
       type: object
-      required: [itens, pagina, tamanho, total]
+      required: [itens, pagina, tamanho, total, totalIngeridos]
       properties:
         itens:
           type: array
@@ -735,6 +736,11 @@ components:
           type: integer
         total:
           type: integer
+          description: Total de editais que combinam com o perfil e os filtros.
+        totalIngeridos:
+          type: integer
+          minimum: 0
+          description: Total de editais ingeridos do PNCP, sem perfil nem filtros. Zero indica que a ingestão ainda não rodou.
     EditalDetalhe:
       allOf:
         - $ref: '#/components/schemas/FeedItem'
