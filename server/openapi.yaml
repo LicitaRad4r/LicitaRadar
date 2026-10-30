@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: LicitaRadar API
-  version: 0.2.0
+  version: 0.3.0
   description: |
     Contrato de interface (rascunho v0.2, Checkpoint 2) da API do LicitaRadar.
     Serve de combinado entre backend e frontend. Depois do congelamento da v0.2, campo novo entra livre;
@@ -17,6 +17,7 @@ info:
       vira `decisor`); depois disso o cliente precisa renovar o token (por exemplo, `getIdToken(true)`).
       Sem o claim `empresaId`, as rotas de negócio respondem `403` com `EMPRESA_NAO_CONFIGURADA`.
     - Permissões por papel: a matriz ainda não foi definida. Até lá (proposta), `decisor` e `analista` acessam todas as rotas.
+    - O frontend lê o papel (`role`) diretamente do ID token (claim), por exemplo para montar o painel do Decisor; não há rota para isso.
     - Um recurso de outra empresa responde `404`, como se não existisse.
     - Erros seguem o formato `Erro`, com um `codigo` estável. Listas são paginadas com `pagina` e `tamanho`.
     - Logs e respostas de erro não incluem dados pessoais.
@@ -28,6 +29,14 @@ info:
     - `Perfil` ganha o campo somente leitura `empresaId`.
     - `Erro.codigo` passa a ter valores fixos (`VALIDACAO`, `NAO_AUTENTICADO`, `EMPRESA_NAO_CONFIGURADA`, `NAO_ENCONTRADO`).
     - `GET /v1/feed` passa a devolver `totalIngeridos` (pedido do frontend, PR #8).
+
+    Mudanças da v0.2 para a v0.3 (revisão do frontend)
+    - `Erro.codigo` ganha `ACESSO_NEGADO` (403 por falta de permissão do papel, diferente de `EMPRESA_NAO_CONFIGURADA`) e `ERRO_INTERNO` (500).
+    - Novo `PUT /v1/certidoes/{certidaoId}/renovacao` (arquivo de até 5 MB e nova validade). `GET /v1/certidoes` passa a vir ordenada por urgência.
+    - Ordem do feed completa: `score` desc, depois `dataLimiteProposta` asc, depois `id` asc (a paginação não repete nem pula edital).
+    - `editalId` (número de controle do PNCP, pode ter `/`) vai codificado na URL (`encodeURIComponent`) e o backend decodifica.
+    - Filtros de data (`publicadoDe/Ate`, `limiteDe/Ate`) são dias no horário de Brasília (`America/Sao_Paulo`), com limites inclusivos.
+    - O frontend lê `role` direto do ID token (claim), sem rota própria.
 
 servers:
   - url: http://localhost:3333
@@ -111,7 +120,8 @@ paths:
       summary: Lista editais ranqueados por aderência
       description: |
         Aplica o Perfil de Fornecedor e, por cima, os filtros de refinamento enviados na consulta
-        (que não alteram o perfil salvo). Ordenado por `score`, do maior para o menor.
+        (que não alteram o perfil salvo). Ordem fixa: `score` do maior para o menor; empate por `dataLimiteProposta` mais próxima primeiro; empate final por `id` crescente. Assim a paginação não repete nem pula edital.
+        Todas as datas de filtro são dias no horário de Brasília (`America/Sao_Paulo`), com limites inclusivos.
         Editais descartados não aparecem.
       parameters:
         - name: termo
@@ -139,23 +149,25 @@ paths:
             minimum: 0
         - name: publicadoDe
           in: query
+          description: Dia (horário de Brasília), inclusivo.
           schema:
             type: string
             format: date
         - name: publicadoAte
           in: query
+          description: Dia (horário de Brasília), inclusivo.
           schema:
             type: string
             format: date
         - name: limiteDe
           in: query
-          description: Data limite de envio de propostas, a partir de.
+          description: Dia (horário de Brasília), inclusivo. Data limite de envio de propostas, a partir de.
           schema:
             type: string
             format: date
         - name: limiteAte
           in: query
-          description: Data limite de envio de propostas, até.
+          description: Dia (horário de Brasília), inclusivo. Data limite de envio de propostas, até.
           schema:
             type: string
             format: date
@@ -343,6 +355,7 @@ paths:
       operationId: listarCertidoes
       tags: [Certidões]
       summary: Lista as certidões da empresa
+      description: Ordenadas por urgência, ou seja, `dataValidade` mais próxima primeiro (as vencidas vêm no topo).
       responses:
         '200':
           description: Certidões cadastradas.
@@ -388,6 +401,49 @@ paths:
           $ref: '#/components/responses/NaoAutenticado'
         '403':
           $ref: '#/components/responses/SemEmpresa'
+  /v1/certidoes/{certidaoId}/renovacao:
+    put:
+      operationId: renovarCertidao
+      tags: [Certidões]
+      summary: Renova uma certidão com o novo arquivo e a nova validade
+      parameters:
+        - $ref: '#/components/parameters/CertidaoId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [arquivo, dataValidade]
+              properties:
+                arquivo:
+                  type: string
+                  format: binary
+                  description: PDF da certidão, até 5 MB.
+                dataValidade:
+                  type: string
+                  format: date
+      responses:
+        '200':
+          description: Certidão renovada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Certidao'
+        '400':
+          $ref: '#/components/responses/Validacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '413':
+          description: Arquivo maior que 5 MB.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
   /v1/certidoes/{certidaoId}:
     patch:
       operationId: atualizarCertidao
@@ -536,7 +592,9 @@ components:
       name: editalId
       in: path
       required: true
-      description: Número de controle do PNCP.
+      description: >-
+        Número de controle do PNCP. Pode conter `/` (por exemplo `00394460000141-1-000123/2026`),
+        então o cliente envia o valor codificado (`encodeURIComponent`) e o backend decodifica.
       schema:
         type: string
     CertidaoId:
@@ -565,7 +623,7 @@ components:
           schema:
             $ref: '#/components/schemas/Erro'
     SemEmpresa:
-      description: 'Token sem o claim `empresaId`: configure o perfil (PUT /v1/perfil) e renove o ID token.'
+      description: 'Acesso recusado. `codigo` EMPRESA_NAO_CONFIGURADA: token sem o claim `empresaId` (configure o perfil em PUT /v1/perfil e renove o ID token). `codigo` ACESSO_NEGADO: o papel do usuário não permite a ação.'
       content:
         application/json:
           schema:
@@ -593,6 +651,8 @@ components:
             - NAO_AUTENTICADO
             - EMPRESA_NAO_CONFIGURADA
             - NAO_ENCONTRADO
+            - ACESSO_NEGADO
+            - ERRO_INTERNO
         mensagem:
           type: string
         detalhes:
