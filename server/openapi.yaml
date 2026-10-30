@@ -1,19 +1,32 @@
 openapi: 3.1.0
 info:
   title: LicitaRadar API
-  version: 0.1.0
+  version: 0.2.0
   description: |
-    Contrato de interface (rascunho v0.1) da API do LicitaRadar. Ainda não está implementado:
-
+    Contrato de interface (rascunho v0.2, Checkpoint 2) da API do LicitaRadar.
+    Serve de combinado entre backend e frontend. Depois do congelamento da v0.2, campo novo entra livre;
+    renomear ou remover um campo só com acordo do backend e do frontend.
 
     Convenções
     - Corpo e resposta em JSON. Datas em ISO 8601 (`date` ou `date-time`, UTC). Valores em reais (BRL), como número.
+    - O navegador nunca acessa o Firestore (regras deny-all): todo dado passa por esta API.
     - Todas as rotas de negócio ficam sob `/v1` e exigem `Authorization: Bearer <ID token do Firebase Auth>`.
       Só `/health` é público.
-    - Os dados são sempre da empresa do usuário autenticado (derivada do token). Não existe `empresaId` na URL.
-      Um recurso de outra empresa responde `404`, como se não existisse.
-    - Erros seguem o formato `Erro`. Listas são paginadas com `pagina` e `tamanho`.
+    - A empresa do usuário vem do claim `empresaId` do ID token, e o papel vem do claim `role` (`decisor` ou `analista`).
+      Não existe `empresaId` na URL. O backend grava os claims no primeiro `PUT /v1/perfil` (proposta: quem cria a empresa
+      vira `decisor`); depois disso o cliente precisa renovar o token (por exemplo, `getIdToken(true)`).
+      Sem o claim `empresaId`, as rotas de negócio respondem `403` com `EMPRESA_NAO_CONFIGURADA`.
+    - Permissões por papel: a matriz ainda não foi definida. Até lá (proposta), `decisor` e `analista` acessam todas as rotas.
+    - Um recurso de outra empresa responde `404`, como se não existisse.
+    - Erros seguem o formato `Erro`, com um `codigo` estável. Listas são paginadas com `pagina` e `tamanho`.
     - Logs e respostas de erro não incluem dados pessoais.
+
+    Mudanças da v0.1 para a v0.2
+    - Documentado que todo acesso a dados passa pela API (regras deny-all do Firestore).
+    - Claims `empresaId` e `role` documentados (proposta): gravados no primeiro `PUT /v1/perfil`, que passa a responder `201` nesse caso.
+    - Novo `403` com `EMPRESA_NAO_CONFIGURADA` nas rotas de negócio, exceto as de perfil.
+    - `Perfil` ganha o campo somente leitura `empresaId`.
+    - `Erro.codigo` passa a ter valores fixos (`VALIDACAO`, `NAO_AUTENTICADO`, `EMPRESA_NAO_CONFIGURADA`, `NAO_ENCONTRADO`).
 
 servers:
   - url: http://localhost:3333
@@ -52,7 +65,7 @@ paths:
       operationId: obterPerfil
       tags: [Perfil]
       summary: Lê o Perfil de Fornecedor da empresa
-      description: Se o perfil ainda não foi configurado, devolve os campos vazios (`ufs` vazio significa nacional).
+      description: Se o token ainda não tem o claim `empresaId` ou o perfil não foi configurado, devolve 200 com os campos vazios (`ufs` vazio significa nacional) e `empresaId` nulo.
       responses:
         '200':
           description: Perfil atual.
@@ -66,6 +79,7 @@ paths:
       operationId: salvarPerfil
       tags: [Perfil]
       summary: Salva o Perfil de Fornecedor (substitui o anterior)
+      description: No primeiro salvamento (proposta), o backend cria a empresa, grava os claims `empresaId` e `role` no usuário e responde `201`. Depois disso, o cliente deve renovar o ID token antes de chamar as demais rotas. Nos salvamentos seguintes responde `200`.
       requestBody:
         required: true
         content:
@@ -75,6 +89,12 @@ paths:
       responses:
         '200':
           description: Perfil salvo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Perfil'
+        '201':
+          description: Perfil criado no primeiro salvamento (empresa criada e claims gravados). Renove o ID token.
           content:
             application/json:
               schema:
@@ -155,6 +175,8 @@ paths:
           $ref: '#/components/responses/Validacao'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
   /v1/editais/{editalId}:
     get:
       operationId: obterEdital
@@ -171,6 +193,8 @@ paths:
                 $ref: '#/components/schemas/EditalDetalhe'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
         '404':
           $ref: '#/components/responses/NaoEncontrado'
   /v1/editais/{editalId}/feedback:
@@ -211,6 +235,8 @@ paths:
           $ref: '#/components/responses/Validacao'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
         '404':
           $ref: '#/components/responses/NaoEncontrado'
     delete:
@@ -224,6 +250,8 @@ paths:
           description: Marcação removida.
         '401':
           $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
         '404':
           $ref: '#/components/responses/NaoEncontrado'
   /v1/editais/{editalId}/acompanhamento:
@@ -258,6 +286,8 @@ paths:
           $ref: '#/components/responses/Validacao'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
         '404':
           $ref: '#/components/responses/NaoEncontrado'
     delete:
@@ -271,6 +301,8 @@ paths:
           description: Acompanhamento removido.
         '401':
           $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
         '404':
           $ref: '#/components/responses/NaoEncontrado'
   /v1/acompanhamentos:
@@ -303,6 +335,8 @@ paths:
                     type: integer
         '401':
           $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
   /v1/certidoes:
     get:
       operationId: listarCertidoes
@@ -323,6 +357,8 @@ paths:
                       $ref: '#/components/schemas/Certidao'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
     post:
       operationId: criarCertidao
       tags: [Certidões]
@@ -349,6 +385,8 @@ paths:
           $ref: '#/components/responses/Validacao'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
   /v1/certidoes/{certidaoId}:
     patch:
       operationId: atualizarCertidao
@@ -373,6 +411,8 @@ paths:
           $ref: '#/components/responses/Validacao'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
         '404':
           $ref: '#/components/responses/NaoEncontrado'
     delete:
@@ -386,6 +426,8 @@ paths:
           description: Certidão removida.
         '401':
           $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
         '404':
           $ref: '#/components/responses/NaoEncontrado'
   /v1/alertas:
@@ -428,6 +470,8 @@ paths:
           $ref: '#/components/responses/Validacao'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
   /v1/alertas/{alertaId}:
     patch:
       operationId: atualizarAlerta
@@ -460,6 +504,8 @@ paths:
           $ref: '#/components/responses/Validacao'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
         '404':
           $ref: '#/components/responses/NaoEncontrado'
 components:
@@ -468,7 +514,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: ID token do Firebase Auth (no desenvolvimento, emitido pelo emulador de Auth).
+      description: ID token do Firebase Auth (no desenvolvimento, emitido pelo emulador de Auth). Os claims `empresaId` e `role` identificam a empresa e o papel.
   parameters:
     Pagina:
       name: pagina
@@ -517,6 +563,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Erro'
+    SemEmpresa:
+      description: 'Token sem o claim `empresaId`: configure o perfil (PUT /v1/perfil) e renove o ID token.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
   schemas:
     Health:
       type: object
@@ -534,7 +586,12 @@ components:
       properties:
         codigo:
           type: string
-          description: Código estável para o frontend tratar (por exemplo, VALIDACAO, NAO_AUTENTICADO, NAO_ENCONTRADO).
+          description: Código estável para o frontend tratar.
+          enum:
+            - VALIDACAO
+            - NAO_AUTENTICADO
+            - EMPRESA_NAO_CONFIGURADA
+            - NAO_ENCONTRADO
         mensagem:
           type: string
         detalhes:
@@ -573,6 +630,12 @@ components:
     Perfil:
       type: object
       properties:
+        empresaId:
+          type:
+            - string
+            - 'null'
+          readOnly: true
+          description: Empresa do usuário (claim `empresaId`). Somente leitura; nulo antes do primeiro PUT.
         ufs:
           type: array
           description: Vazio significa nacional (todo o Brasil).
