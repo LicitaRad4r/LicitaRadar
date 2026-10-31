@@ -32,15 +32,17 @@ cd client && npm ci && npm run lint && npm run build
 cd server && npm ci && npm run lint && npm run build
 ```
 
+## Documentação
+
+A documentação do produto (ADRs, FinOps, jornadas, testes) fica no repositório
+[`LicitaRad4r/documentation`](https://github.com/LicitaRad4r/documentation)
+([site](https://licitarad4r.github.io/documentation/)).
+
 ## Plano custo zero (sem voucher GCP)
 
 Até a Semana 4 tudo roda **só no computador** (Compose + emuladores). Na nuvem
-(Semana 5+) o LicitaRadar segue o [ADR-0001](docs/arquitetura/decisoes_adrs/0001-plano-custo-zero.md):
-
-- Firebase **Spark** (Auth, Firestore, Hosting) — sem Blaze e sem cartão
-- API no **Render** (gratuito)
-- Ingestão PNCP no **GitHub Actions** (cron), não Cloud Scheduler
-- Provas FinOps em [`docs/finops/`](docs/finops/)
+(Semana 5+) o LicitaRadar segue o **ADR-0012** no repositório de documentação
+(plano Spark + Render + GitHub Actions). Evidências FinOps também ficam lá.
 
 ### Regras de ouro
 
@@ -49,7 +51,7 @@ Até a Semana 4 tudo roda **só no computador** (Compose + emuladores). Na nuvem
 3. Testes pesados e seed grande só no emulador — nunca no Firestore real.
 4. Um projeto Firebase por equipe.
 5. Segredos só em GitHub Secrets / variáveis do Render — nunca no repositório.
-6. Prints de “plano gratuito / sem pagamento” em `docs/finops/evidencias/`.
+6. Prints de “plano gratuito / sem pagamento” no repo de documentação (`docs/finops/`).
 7. Serviço novo = ADR + aprovação do Tech Lead.
 
 ## Fluxo de trabalho
