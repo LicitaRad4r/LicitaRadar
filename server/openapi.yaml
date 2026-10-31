@@ -16,11 +16,13 @@ info:
       Não existe `empresaId` na URL. O backend grava os claims no primeiro `PUT /v1/perfil` (proposta: quem cria a empresa
       vira `decisor`); depois disso o cliente precisa renovar o token (por exemplo, `getIdToken(true)`).
       Sem o claim `empresaId`, as rotas de negócio respondem `403` com `EMPRESA_NAO_CONFIGURADA`.
-    - Permissões por papel: a matriz ainda não foi definida. Até lá (proposta), `decisor` e `analista` acessam todas as rotas.
+    - Permissões por papel (RF03, US06): o `analista` não acessa certidões nem documentos legais ou financeiros. Todas as rotas `/v1/certidoes` respondem `403` com `ACESSO_NEGADO` para ele, e nada é gravado. Perfil, feed, editais, feedback e acompanhamento são liberados para os dois papéis. O `decisor` acessa tudo.
+    - A empresa vem só do token. Se a requisição trouxer `orgId` ou `empresaId` na query diferente do claim, a resposta é `403` com `ACESSO_NEGADO`.
+    - Token sem o claim `empresaId` ou sem o claim `role` responde `403` com `EMPRESA_NAO_CONFIGURADA` nas rotas de negócio.
     - O frontend lê o papel (`role`) diretamente do ID token (claim), por exemplo para montar o painel do Decisor; não há rota para isso.
-    - Um recurso de outra empresa responde `404`, como se não existisse.
+    - Um recurso de outra empresa responde `403` com `ACESSO_NEGADO`, sem revelar dados do recurso (CT-SEG-007 e CT-SEG-008). Id inexistente responde `404`.
     - Erros seguem o formato `Erro`, com um `codigo` estável. Listas são paginadas com `pagina` e `tamanho`.
-    - Logs e respostas de erro não incluem dados pessoais.
+    - Logs e respostas de erro não incluem dados pessoais nem do recurso: em bloqueios, o log traz só `requestId`, rota e status (CT-SEG-011).
 
     Mudanças da v0.1 para a v0.2
     - Documentado que todo acesso a dados passa pela API (regras deny-all do Firestore).
@@ -37,6 +39,13 @@ info:
     - `editalId` (número de controle do PNCP, pode ter `/`) vai codificado na URL (`encodeURIComponent`) e o backend decodifica.
     - Filtros de data (`publicadoDe/Ate`, `limiteDe/Ate`) são dias no horário de Brasília (`America/Sao_Paulo`), com limites inclusivos.
     - O frontend lê `role` direto do ID token (claim), sem rota própria.
+
+    Alinhamento com a documentação (ainda na v0.3)
+    - Matriz de permissões definida: `analista` recebe `403` (`ACESSO_NEGADO`) em todo `/v1/certidoes`. Alertas do tipo `certidao_vencendo` não são devolvidos ao analista.
+    - Recurso de outra empresa passa a responder `403` (antes `404`), conforme CT-SEG-007 e CT-SEG-008.
+    - `CertidaoStatus` passa a `vencida`, `urgente` (0 a 15 dias), `atencao` (16 a 30) e `em_dia` (31 ou mais), contados em dias no horário de Brasília (CT-CERT-001).
+    - Renovação aceita PDF, JPG ou PNG de até 5 MB; arquivo inválido ou grande demais responde `400` (sem `413`). A nova validade deve ser posterior a hoje e à validade atual.
+    - Desempate do feed ganha a publicação mais recente (CT-FEED-002).
 
 servers:
   - url: http://localhost:3333
@@ -120,7 +129,7 @@ paths:
       summary: Lista editais ranqueados por aderência
       description: |
         Aplica o Perfil de Fornecedor e, por cima, os filtros de refinamento enviados na consulta
-        (que não alteram o perfil salvo). Ordem fixa: `score` do maior para o menor; empate por `dataLimiteProposta` mais próxima primeiro; empate final por `id` crescente. Assim a paginação não repete nem pula edital.
+        (que não alteram o perfil salvo). Ordem fixa: `score` do maior para o menor; empate por `dataLimiteProposta` mais próxima primeiro; depois publicação mais recente; empate final por `id` crescente. Assim a paginação não repete nem pula edital.
         Todas as datas de filtro são dias no horário de Brasília (`America/Sao_Paulo`), com limites inclusivos.
         Editais descartados não aparecem.
       parameters:
@@ -355,7 +364,7 @@ paths:
       operationId: listarCertidoes
       tags: [Certidões]
       summary: Lista as certidões da empresa
-      description: Ordenadas por urgência, ou seja, `dataValidade` mais próxima primeiro (as vencidas vêm no topo).
+      description: Somente `decisor`; `analista` recebe 403 `ACESSO_NEGADO`. Ordenadas por urgência, ou seja, `dataValidade` mais próxima primeiro (as vencidas vêm no topo).
       responses:
         '200':
           description: Certidões cadastradas.
@@ -377,6 +386,7 @@ paths:
       operationId: criarCertidao
       tags: [Certidões]
       summary: Cadastra uma certidão
+      description: Somente `decisor`; `analista` recebe 403 `ACESSO_NEGADO`.
       requestBody:
         required: true
         content:
@@ -406,6 +416,7 @@ paths:
       operationId: renovarCertidao
       tags: [Certidões]
       summary: Renova uma certidão com o novo arquivo e a nova validade
+      description: Somente `decisor`; `analista` recebe 403 `ACESSO_NEGADO` e nada é gravado. Dados inválidos respondem 400 e a certidão anterior fica intacta.
       parameters:
         - $ref: '#/components/parameters/CertidaoId'
       requestBody:
@@ -419,13 +430,14 @@ paths:
                 arquivo:
                   type: string
                   format: binary
-                  description: PDF da certidão, até 5 MB.
+                  description: PDF, JPG ou PNG, até 5 MB (5 MB exatos é aceito). Arquivo vazio ou de outro tipo é recusado.
                 dataValidade:
                   type: string
                   format: date
+                  description: Deve ser posterior a hoje (Brasília) e à validade atual.
       responses:
         '200':
-          description: Certidão renovada.
+          description: Certidão renovada. O status é recalculado na hora.
           content:
             application/json:
               schema:
@@ -438,17 +450,12 @@ paths:
           $ref: '#/components/responses/SemEmpresa'
         '404':
           $ref: '#/components/responses/NaoEncontrado'
-        '413':
-          description: Arquivo maior que 5 MB.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Erro'
   /v1/certidoes/{certidaoId}:
     patch:
       operationId: atualizarCertidao
       tags: [Certidões]
       summary: Atualiza campos de uma certidão (por exemplo, a nova validade)
+      description: Somente `decisor`; `analista` recebe 403 `ACESSO_NEGADO`.
       parameters:
         - $ref: '#/components/parameters/CertidaoId'
       requestBody:
@@ -476,6 +483,7 @@ paths:
       operationId: removerCertidao
       tags: [Certidões]
       summary: Remove uma certidão
+      description: Somente `decisor`; `analista` recebe 403 `ACESSO_NEGADO`.
       parameters:
         - $ref: '#/components/parameters/CertidaoId'
       responses:
@@ -492,7 +500,7 @@ paths:
       operationId: listarAlertas
       tags: [Alertas]
       summary: Lista os alertas da empresa
-      description: Mais recentes primeiro.
+      description: Mais recentes primeiro. Para o `analista`, alertas do tipo `certidao_vencendo` não são devolvidos.
       parameters:
         - name: tipo
           in: query
@@ -617,13 +625,13 @@ components:
           schema:
             $ref: '#/components/schemas/Erro'
     NaoEncontrado:
-      description: Recurso inexistente (ou de outra empresa).
+      description: Recurso inexistente.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Erro'
     SemEmpresa:
-      description: 'Acesso recusado. `codigo` EMPRESA_NAO_CONFIGURADA: token sem o claim `empresaId` (configure o perfil em PUT /v1/perfil e renove o ID token). `codigo` ACESSO_NEGADO: o papel do usuário não permite a ação.'
+      description: 'Acesso recusado. `codigo` EMPRESA_NAO_CONFIGURADA: token sem `empresaId` ou `role` (configure o perfil em PUT /v1/perfil e renove o ID token). `codigo` ACESSO_NEGADO: o papel não permite a ação, o recurso é de outra empresa ou a query traz outra empresa.'
       content:
         application/json:
           schema:
@@ -839,9 +847,10 @@ components:
     CertidaoStatus:
       type: string
       description: |
-        Calculado pelo backend a partir de `dataValidade`. A janela de "vence_em_breve"
-        é um parâmetro a definir (proposta: 30 dias).
-      enum: [valida, vence_em_breve, vencida]
+        Calculado pelo backend a partir de `dataValidade`, em dias inteiros no horário de Brasília:
+        menos de 0 é `vencida`; de 0 a 15 é `urgente`; de 16 a 30 é `atencao`; 31 ou mais é `em_dia`.
+        O painel de alertas só mostra as de até 30 dias. O status muda na virada do dia em Brasília.
+      enum: [vencida, urgente, atencao, em_dia]
     CertidaoEntrada:
       type: object
       required: [tipo, dataValidade]
