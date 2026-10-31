@@ -32,6 +32,26 @@ cd client && npm ci && npm run lint && npm run build
 cd server && npm ci && npm run lint && npm run build
 ```
 
+## Plano custo zero (sem voucher GCP)
+
+Até a Semana 4 tudo roda **só no computador** (Compose + emuladores). Na nuvem
+(Semana 5+) o LicitaRadar segue o [ADR-0001](docs/arquitetura/decisoes_adrs/0001-plano-custo-zero.md):
+
+- Firebase **Spark** (Auth, Firestore, Hosting) — sem Blaze e sem cartão
+- API no **Render** (gratuito)
+- Ingestão PNCP no **GitHub Actions** (cron), não Cloud Scheduler
+- Provas FinOps em [`docs/finops/`](docs/finops/)
+
+### Regras de ouro
+
+1. Nunca cadastrar cartão em GCP, Firebase, Render, Supabase ou GitHub.
+2. Nunca clicar em Upgrade / Blaze no Firebase.
+3. Testes pesados e seed grande só no emulador — nunca no Firestore real.
+4. Um projeto Firebase por equipe.
+5. Segredos só em GitHub Secrets / variáveis do Render — nunca no repositório.
+6. Prints de “plano gratuito / sem pagamento” em `docs/finops/evidencias/`.
+7. Serviço novo = ADR + aprovação do Tech Lead.
+
 ## Fluxo de trabalho
 
 - Ninguém faz push direto na `main`: crie uma branch e abra um Pull Request.

@@ -31,5 +31,8 @@
 # Documentação de produto (PO)
 /docs/                  @mariajulia-senaa @lianeiv
 
+# FinOps / DevOps
+/docs/finops/           @GGdornelas @lianeiv
+
 # Decisões de arquitetura (Tech Lead)
-/docs/adr/              @lianeiv
+/docs/arquitetura/      @lianeiv
