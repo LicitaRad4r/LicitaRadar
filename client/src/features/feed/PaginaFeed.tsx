@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Paginacao } from '@/components/Paginacao'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import type { MotivoVazio } from '@/api/tipos'
 import { useFeed } from './api'
 import { BarraDeFiltros } from './BarraDeFiltros'
 import { ItemDoFeed } from './ItemDoFeed'
@@ -42,26 +43,7 @@ export function PaginaFeed() {
         consulta={feed}
         tituloErro="Não foi possível carregar os editais"
         carregando={<EsqueletoDoFeed />}
-        vazio={
-          temFiltro ? (
-            <Vazio
-              icone={<SearchX aria-hidden />}
-              titulo="Nenhum edital combina com esses filtros"
-              descricao="Tente outro termo, outro estado ou todas as faixas de aderência."
-              acao={
-                <Button variant="outline" onClick={limpar}>
-                  Limpar filtros
-                </Button>
-              }
-            />
-          ) : (
-            <Vazio
-              icone={<Radar aria-hidden />}
-              titulo="Ainda não há editais para o seu perfil"
-              descricao="Os editais do PNCP são buscados todos os dias. Assim que aparecer um que combine com o seu perfil, ele entra aqui. Se o perfil estiver muito restrito, ampliar termos ou estados traz mais resultados."
-            />
-          )
-        }
+        vazio={<VazioDoFeed motivo={feed.data?.motivoVazio ?? null} temFiltro={temFiltro} limpar={limpar} />}
       >
         {(pagina) => (
           <div aria-busy={feed.isPlaceholderData}>
@@ -76,8 +58,8 @@ export function PaginaFeed() {
               ))}
             </div>
             <Paginacao
-              pagina={pagina.pagina}
-              tamanho={pagina.tamanho}
+              pagina={pagina.page}
+              tamanho={pagina.pageSize}
               total={pagina.total}
               aoMudar={(nova) => {
                 alterar({ pagina: nova })
@@ -88,6 +70,51 @@ export function PaginaFeed() {
         )}
       </EstadoDaConsulta>
     </section>
+  )
+}
+
+/**
+ * Mensagens de lista vazia conforme o motivo informado pelo back (`motivoVazio`):
+ * nada ingerido do PNCP, perfil descartou tudo, ou os filtros eliminaram tudo.
+ */
+function VazioDoFeed({
+  motivo,
+  temFiltro,
+  limpar,
+}: {
+  motivo: MotivoVazio | null
+  temFiltro: boolean
+  limpar: () => void
+}) {
+  if (motivo === 'sem_editais') {
+    return (
+      <Vazio
+        icone={<Radar aria-hidden />}
+        titulo="Ainda não há editais ingeridos"
+        descricao="Os editais do PNCP são buscados todos os dias. Assim que a primeira busca terminar, os que combinam com o seu perfil aparecem aqui."
+      />
+    )
+  }
+  if (motivo === 'filtros' || (motivo === null && temFiltro)) {
+    return (
+      <Vazio
+        icone={<SearchX aria-hidden />}
+        titulo="Nenhum edital combina com esses filtros"
+        descricao="Remova algum filtro ou limpe todos para ver os editais do seu perfil."
+        acao={
+          <Button variant="outline" onClick={limpar}>
+            Limpar filtros
+          </Button>
+        }
+      />
+    )
+  }
+  return (
+    <Vazio
+      icone={<SearchX aria-hidden />}
+      titulo="Nenhum edital combina com o seu perfil"
+      descricao="Há editais no radar, mas nenhum passou pelos critérios do seu perfil. Ampliar os termos, os estados ou a faixa de valor traz mais resultados."
+    />
   )
 }
 

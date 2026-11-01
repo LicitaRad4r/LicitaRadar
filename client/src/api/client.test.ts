@@ -44,6 +44,7 @@ describe('cliente da API', () => {
           {
             codigo: 'VALIDACAO',
             mensagem: 'Dados inválidos.',
+            requestId: 'req-123',
             detalhes: [{ campo: 'valorMaximo', mensagem: 'Deve ser maior que o mínimo.' }],
           },
           { status: 400 },
@@ -56,8 +57,26 @@ describe('cliente da API', () => {
     expect(erro).toBeInstanceOf(ApiError)
     expect(erro.status).toBe(400)
     expect(erro.codigo).toBe('VALIDACAO')
+    expect(erro.requestId).toBe('req-123')
     expect(errosPorCampo(erro)).toEqual({ valorMaximo: 'Deve ser maior que o mínimo.' })
     expect(mensagemAmigavel(erro)).toBe('Confira os campos destacados.')
+  })
+
+  it('explica o 403 de papel sem permissão e o de empresa não configurada', async () => {
+    servidor.use(
+      http.get(`${API_URL}/v1/certidoes`, () =>
+        HttpResponse.json({ codigo: 'ACESSO_NEGADO', mensagem: 'x', requestId: 'r1' }, { status: 403 }),
+      ),
+      http.get(`${API_URL}/v1/feed`, () =>
+        HttpResponse.json({ codigo: 'EMPRESA_NAO_CONFIGURADA', mensagem: 'x', requestId: 'r2' }, { status: 403 }),
+      ),
+    )
+
+    const semPermissao = await desembrulhar(api.GET('/v1/certidoes')).catch((e) => e)
+    const semEmpresa = await desembrulhar(api.GET('/v1/feed')).catch((e) => e)
+
+    expect(mensagemAmigavel(semPermissao)).toMatch(/não permite/)
+    expect(mensagemAmigavel(semEmpresa)).toMatch(/Configure o perfil/)
   })
 
   it('usa o status quando o erro vem sem corpo', async () => {

@@ -29,6 +29,7 @@ describe('Feed', () => {
     expect(notas).toEqual([...notas].sort((a, b) => b - a))
     expect(within(editais()[0]).getByText('Alta aderência')).toBeInTheDocument()
     expect(screen.getAllByText('Média aderência').length).toBeGreaterThan(0)
+    expect(within(editais()[0]).getByRole('heading')).toHaveTextContent('Aquisição de notebooks e monitores')
   })
 
   it('pagina e guarda a página na URL', async () => {
@@ -43,17 +44,6 @@ describe('Feed', () => {
     expect(within(editais()[0]).getByRole('heading').textContent).not.toBe(primeiroDaPagina1)
   })
 
-  it('filtra por faixa e volta para a primeira página', async () => {
-    const { router } = abrirFeed('/?pagina=2')
-    await screen.findAllByRole('article')
-
-    await userEvent.click(screen.getByRole('button', { name: 'Alta' }))
-
-    expect(router.state.location.search).toBe('?faixa=alta')
-    await screen.findByRole('button', { name: 'Alta', pressed: true })
-    expect(await screen.findAllByText('Alta aderência')).toHaveLength(editais().length)
-  })
-
   it('sem resultados com filtro: explica e oferece limpar', async () => {
     abrirFeed('/?termo=hemodialise')
 
@@ -65,14 +55,26 @@ describe('Feed', () => {
     expect(screen.getByRole('searchbox')).toHaveValue('')
   })
 
-  it('sem resultados e sem filtro: avisa que ainda não há editais para o perfil', async () => {
+  it.each([
+    ['sem_editais', 0, 'Ainda não há editais ingeridos'],
+    ['todos_descartados', 24, 'Nenhum edital combina com o seu perfil'],
+  ] as const)('lista vazia por %s: mostra a mensagem certa, sem Limpar filtros', async (motivoVazio, totalIngeridos, mensagem) => {
     servidor.use(
-      http.get(`${API_URL}/v1/feed`, () => HttpResponse.json({ itens: [], pagina: 1, tamanho: 10, total: 0 })),
+      http.get(`${API_URL}/v1/feed`, () =>
+        HttpResponse.json({ itens: [], page: 1, pageSize: 10, total: 0, totalIngeridos, motivoVazio }),
+      ),
     )
     abrirFeed()
 
-    expect(await screen.findByText('Ainda não há editais para o seu perfil')).toBeInTheDocument()
+    expect(await screen.findByText(mensagem)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Limpar filtros/ })).not.toBeInTheDocument()
+  })
+
+  it('mostra as três faixas de aderência do contrato', async () => {
+    abrirFeed('/?pagina=3')
+    await screen.findAllByRole('article')
+
+    expect(screen.getAllByText('Baixa aderência').length).toBeGreaterThan(0)
   })
 
   it('mostra o erro com opção de tentar de novo', async () => {
@@ -88,13 +90,4 @@ describe('Feed', () => {
     expect(within(alerta).getByRole('button', { name: 'Tentar de novo' })).toBeInTheDocument()
   })
 
-  it('marca um edital como relevante', async () => {
-    abrirFeed()
-    await screen.findAllByRole('article')
-    const botao = within(editais()[0]).getByRole('button', { name: 'Relevante' })
-
-    await userEvent.click(botao)
-
-    expect(within(editais()[0]).getByRole('button', { name: 'Relevante', pressed: true })).toBeInTheDocument()
-  })
 })

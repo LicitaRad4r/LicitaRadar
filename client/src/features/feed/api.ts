@@ -4,7 +4,7 @@ import { api, desembrulhar } from '@/api/client'
 import type { FiltrosFeed } from '@/api/tipos'
 
 /**
- * Jornada 2. GET /v1/feed, já ordenado por score.
+ * GET /v1/feed, já ordenado pelo back (score, prazo, publicação, id).
  * Ao trocar filtro ou página, mantém a lista anterior na tela enquanto a nova carrega
  * (use `isPlaceholderData` para deixar a lista mais clara nesse meio tempo).
  */

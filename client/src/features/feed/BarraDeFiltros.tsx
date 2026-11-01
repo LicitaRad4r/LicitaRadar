@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Search, X } from 'lucide-react'
-import type { Faixa, Uf } from '@/api/tipos'
+import type { Uf } from '@/api/tipos'
 import { Button } from '@/components/ui/button'
 import { UFS } from '@/lib/ufs'
 import { cn } from '@/lib/utils'
@@ -12,12 +12,6 @@ type Props = {
   limpar: () => void
   temFiltro: boolean
 }
-
-const OPCOES_FAIXA: { valor: Faixa | ''; rotulo: string }[] = [
-  { valor: '', rotulo: 'Todas' },
-  { valor: 'alta', rotulo: 'Alta' },
-  { valor: 'media', rotulo: 'Média' },
-]
 
 const campo =
   'h-9 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
@@ -78,25 +72,6 @@ export function BarraDeFiltros({ filtros, alterar, limpar, temFiltro }: Props) {
         </select>
       </label>
 
-      <fieldset className="flex rounded-lg border border-input p-0.5">
-        <legend className="sr-only">Aderência</legend>
-        {OPCOES_FAIXA.map((opcao) => (
-          <button
-            key={opcao.rotulo}
-            type="button"
-            aria-pressed={filtros.faixa === opcao.valor}
-            onClick={() => alterar({ faixa: opcao.valor })}
-            className={cn(
-              'h-8 rounded-md px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-              filtros.faixa === opcao.valor
-                ? 'bg-tinta text-white'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {opcao.rotulo}
-          </button>
-        ))}
-      </fieldset>
 
       {temFiltro && (
         <Button type="button" variant="ghost" onClick={limpar}>

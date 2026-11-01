@@ -1,88 +1,154 @@
 import { delay, http, HttpResponse, type HttpResponseResolver } from 'msw'
 import { API_URL } from '@/api/config'
-import type { Acompanhamento, Certidao, CertidaoEntrada, ErroApi, Etapa, Feedback, Perfil } from '@/api/tipos'
-import { banco, editais, ETAPAS_PADRAO, statusPorValidade } from './dados'
+import type { CodigoErroApi, EditalDetalhe, ErroApi, FeedItem, MotivoVazio, Perfil } from '@/api/tipos'
+import { diaEmBrasilia, hojeEmBrasilia } from '@/lib/datas'
+import { banco, calcularCertidao, editais } from './dados'
 
 /**
- * Mock da API seguindo server/openapi.yaml. Serve para desenvolver as telas
+ * Mock da API seguindo server/openapi.yaml (v0.3). Serve para desenvolver as telas
  * enquanto o back não implementa as rotas, e para os testes.
  *
- * No navegador dá para forçar um estado em todas as telas pela URL:
- *   ?mock=vazio   listas vazias
- *   ?mock=erro    toda chamada falha com 500
- *   ?mock=lento   respostas demoram 3 s (para ver o carregando)
- *   ?mock=sem-login  toda chamada responde 401
+ * No navegador dá para forçar um estado em todas as telas pela URL (?mock=...):
+ *   vazio        nenhum edital ingerido e nenhuma certidão
+ *   descartados  o perfil descartou todos os editais
+ *   erro         toda chamada falha com 500
+ *   lento        respostas demoram 3 s (para ver o carregando)
+ *   sem-login    toda chamada responde 401
+ *   sem-empresa  rotas de negócio respondem 403 EMPRESA_NAO_CONFIGURADA
+ * E simular o papel do usuário com ?papel=analista (certidões respondem 403 ACESSO_NEGADO).
  */
-type Cenario = 'normal' | 'vazio' | 'erro' | 'lento' | 'sem-login'
+type Cenario = 'normal' | 'vazio' | 'descartados' | 'erro' | 'lento' | 'sem-login' | 'sem-empresa'
 
-function cenarioAtual(): Cenario {
-  if (typeof window === 'undefined' || import.meta.env.MODE === 'test') return 'normal'
-  return (new URLSearchParams(window.location.search).get('mock') as Cenario | null) ?? 'normal'
+function parametroDaPagina(nome: string) {
+  if (typeof window === 'undefined' || import.meta.env.MODE === 'test') return null
+  return new URLSearchParams(window.location.search).get(nome)
 }
+
+const cenarioAtual = () => (parametroDaPagina('mock') as Cenario | null) ?? 'normal'
+const papelAtual = () => (parametroDaPagina('papel') === 'analista' ? 'analista' : 'decisor')
 
 const url = (caminho: string) => `${API_URL}${caminho}`
 
-function erro(status: number, corpo: ErroApi) {
+let contador = 0
+function erro(status: number, codigo: CodigoErroApi, mensagem: string, detalhes?: ErroApi['detalhes']) {
+  const corpo: ErroApi = { codigo, mensagem, requestId: `mock-${++contador}`, ...(detalhes && { detalhes }) }
   return HttpResponse.json(corpo, { status })
 }
 
-const naoEncontrado = () =>
-  erro(404, { codigo: 'NAO_ENCONTRADO', mensagem: 'Recurso não encontrado.' })
+const naoEncontrado = () => erro(404, 'NAO_ENCONTRADO', 'Recurso não encontrado.')
+const validacao = (campo: string, mensagem: string) =>
+  erro(400, 'VALIDACAO', 'Dados inválidos.', [{ campo, mensagem }])
 
 /** Aplica o cenário antes de qualquer rota. Devolve uma resposta se o cenário "atropelar" a rota. */
-async function aplicarCenario() {
+async function aplicarCenario(rotaDeNegocio: boolean) {
   const cenario = cenarioAtual()
   if (import.meta.env.MODE !== 'test') await delay(cenario === 'lento' ? 3000 : 300)
-  if (cenario === 'erro') return erro(500, { codigo: 'ERRO_INTERNO', mensagem: 'Erro simulado.' })
-  if (cenario === 'sem-login') return erro(401, { codigo: 'NAO_AUTENTICADO', mensagem: 'Token ausente.' })
+  if (cenario === 'erro') return erro(500, 'ERRO_INTERNO', 'Erro simulado.')
+  if (cenario === 'sem-login') return erro(401, 'NAO_AUTENTICADO', 'Token ausente ou inválido.')
+  if (cenario === 'sem-empresa' && rotaDeNegocio) {
+    return erro(403, 'EMPRESA_NAO_CONFIGURADA', 'Configure o perfil da empresa antes de usar esta rota.')
+  }
   return undefined
 }
 
-const listaVazia = () => cenarioAtual() === 'vazio'
-
 /** Envolve cada rota com o cenário. */
-function rota(resolver: HttpResponseResolver): HttpResponseResolver {
-  return async (info) => (await aplicarCenario()) ?? resolver(info)
+function rota(resolver: HttpResponseResolver, { negocio = true } = {}): HttpResponseResolver {
+  return async (info) => (await aplicarCenario(negocio)) ?? resolver(info)
 }
 
-function paginar<T>(itens: T[], params: URLSearchParams) {
-  const pagina = Math.max(1, Number(params.get('pagina') ?? 1))
-  const tamanho = Math.min(100, Math.max(1, Number(params.get('tamanho') ?? 20)))
-  const inicio = (pagina - 1) * tamanho
-  return { itens: itens.slice(inicio, inicio + tamanho), pagina, tamanho, total: itens.length }
+/** Só o decisor acessa certidões (RF03). */
+function soDecisor(resolver: HttpResponseResolver): HttpResponseResolver {
+  return rota((info) => (papelAtual() === 'analista' ? erro(403, 'ACESSO_NEGADO', 'Acesso negado.') : resolver(info)))
 }
 
-function acompanhamentoDe(editalId: string): Acompanhamento | undefined {
-  const edital = editais().find((e) => e.id === editalId)
-  const dados = banco.acompanhamentos.get(editalId)
-  if (!edital || !dados) return undefined
-  return { editalId, edital, ...dados }
+function paginacao(params: URLSearchParams) {
+  const page = Math.max(1, Number(params.get('page') ?? 1) || 1)
+  const pageSize = Math.min(100, Math.max(1, Number(params.get('pageSize') ?? 20) || 20))
+  return { page, pageSize }
 }
+
+/** Ordem do contrato: score desc, prazo mais próximo, publicação mais recente, id. */
+function comparar(a: FeedItem, b: FeedItem) {
+  return (
+    b.score - a.score ||
+    a.prazo.localeCompare(b.prazo) ||
+    (b.dataPublicacao ?? '').localeCompare(a.dataPublicacao ?? '') ||
+    a.id.localeCompare(b.id)
+  )
+}
+
+/** Sem acento, minúsculo e sem plural simples (mesmo normalizador do score, segundo o contrato). */
+function normalizar(texto: string) {
+  return texto
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .split(/\s+/)
+    .map((palavra) => palavra.replace(/s$/, ''))
+    .join(' ')
+}
+
+function filtrarFeed(todos: EditalDetalhe[], params: URLSearchParams) {
+  const q = params.get('q')
+  const ufs = params.getAll('uf').flatMap((uf) => uf.split(','))
+  const municipio = params.get('municipio')
+  const modalidade = params.get('modalidade')
+  const publicadoDe = params.get('publicadoDe')
+  const publicadoAte = params.get('publicadoAte')
+  const prazoDe = params.get('prazoDe')
+  const prazoAte = params.get('prazoAte')
+  const valorMin = params.get('valorMin')
+  const valorMax = params.get('valorMax')
+
+  return todos
+    .filter((e) => !q || normalizar(e.titulo).includes(normalizar(q)))
+    .filter((e) => ufs.length === 0 || ufs.includes(e.uf))
+    .filter((e) => !municipio || normalizar(e.municipio ?? '').includes(normalizar(municipio)))
+    .filter((e) => !modalidade || e.modalidade === modalidade)
+    .filter((e) => !publicadoDe || (e.dataPublicacao && diaEmBrasilia(e.dataPublicacao) >= publicadoDe))
+    .filter((e) => !publicadoAte || (e.dataPublicacao && diaEmBrasilia(e.dataPublicacao) <= publicadoAte))
+    .filter((e) => !prazoDe || diaEmBrasilia(e.prazo) >= prazoDe)
+    .filter((e) => !prazoAte || diaEmBrasilia(e.prazo) <= prazoAte)
+    // Edital sem valor não satisfaz um filtro de valor ativo.
+    .filter((e) => !valorMin || (e.valorEstimado != null && e.valorEstimado >= Number(valorMin)))
+    .filter((e) => !valorMax || (e.valorEstimado != null && e.valorEstimado <= Number(valorMax)))
+}
+
+const FILTROS = ['q', 'uf', 'municipio', 'modalidade', 'publicadoDe', 'publicadoAte', 'prazoDe', 'prazoAte', 'valorMin', 'valorMax']
+
+const TIPOS_ACEITOS = ['application/pdf', 'image/jpeg', 'image/png']
+const LIMITE_ARQUIVO = 5 * 1024 * 1024
 
 export const handlers = [
   http.get(url('/health'), () =>
     HttpResponse.json({ status: 'ok' as const, timestamp: new Date().toISOString() }),
   ),
 
-  // Perfil
+  // Perfil (liberado também sem empresa no token)
   http.get(
     url('/v1/perfil'),
-    rota(() => HttpResponse.json(listaVazia() ? {} : banco.perfil)),
+    rota(
+      () =>
+        HttpResponse.json(
+          cenarioAtual() === 'sem-empresa' ? ({ empresaId: null, ufs: [], termosChave: [] } satisfies Perfil) : banco.perfil,
+        ),
+      { negocio: false },
+    ),
   ),
   http.put(
     url('/v1/perfil'),
-    rota(async ({ request }) => {
-      const perfil = (await request.json()) as Perfil
-      if (perfil.valorMinimo != null && perfil.valorMaximo != null && perfil.valorMinimo > perfil.valorMaximo) {
-        return erro(400, {
-          codigo: 'VALIDACAO',
-          mensagem: 'Dados inválidos.',
-          detalhes: [{ campo: 'valorMaximo', mensagem: 'Deve ser maior que o valor mínimo.' }],
-        })
-      }
-      banco.perfil = perfil
-      return HttpResponse.json(perfil)
-    }),
+    rota(
+      async ({ request }) => {
+        const perfil = (await request.json()) as Perfil
+        if (perfil.valorMinimo != null && perfil.valorMaximo != null && perfil.valorMinimo > perfil.valorMaximo) {
+          return validacao('valorMaximo', 'Deve ser maior que o valor mínimo.')
+        }
+        const primeiro = !banco.perfil.empresaId
+        banco.perfil = { ...perfil, empresaId: banco.perfil.empresaId ?? 'empresa-demo' }
+        return HttpResponse.json(banco.perfil, { status: primeiro ? 201 : 200 })
+      },
+      { negocio: false },
+    ),
   ),
 
   // Feed
@@ -90,25 +156,39 @@ export const handlers = [
     url('/v1/feed'),
     rota(({ request }) => {
       const params = new URL(request.url).searchParams
-      if (listaVazia()) return HttpResponse.json(paginar([], params))
-      const termo = params.get('termo')?.toLowerCase()
-      const ufs = params.getAll('uf')
-      const faixa = params.get('faixa')
-      const valorMinimo = params.get('valorMinimo')
-      const valorMaximo = params.get('valorMaximo')
-      const itens = editais()
-        .filter((e) => !termo || e.objeto.toLowerCase().includes(termo))
-        .filter((e) => ufs.length === 0 || ufs.includes(e.uf))
-        .filter((e) => !faixa || e.faixa === faixa)
-        .filter((e) => !valorMinimo || (e.valorEstimado ?? 0) >= Number(valorMinimo))
-        .filter((e) => !valorMaximo || (e.valorEstimado ?? Infinity) <= Number(valorMaximo))
-        .sort((a, b) => b.score - a.score)
-        .map(({ descricao: _descricao, ...item }) => item)
-      return HttpResponse.json(paginar(itens, params))
+      const { page, pageSize } = paginacao(params)
+      const valorMin = params.get('valorMin')
+      const valorMax = params.get('valorMax')
+      if (valorMin && valorMax && Number(valorMin) > Number(valorMax)) {
+        return validacao('valorMin', 'O valor mínimo não pode ser maior que o máximo.')
+      }
+
+      const cenario = cenarioAtual()
+      const ingeridos = cenario === 'vazio' ? [] : editais()
+      const doPerfil = cenario === 'descartados' ? [] : ingeridos
+      const filtrados = filtrarFeed(doPerfil, params)
+        .map(({ descricao: _d, linkPncp: _l, ...item }) => item)
+        .sort(comparar)
+      const itens = filtrados.slice((page - 1) * pageSize, page * pageSize)
+
+      let motivoVazio: MotivoVazio | null = null
+      if (itens.length === 0) {
+        const comFiltro = FILTROS.some((f) => params.has(f))
+        motivoVazio =
+          ingeridos.length === 0 ? 'sem_editais' : doPerfil.length === 0 ? 'todos_descartados' : comFiltro ? 'filtros' : null
+      }
+      return HttpResponse.json({
+        itens,
+        page,
+        pageSize,
+        total: filtrados.length,
+        totalIngeridos: ingeridos.length,
+        motivoVazio,
+      })
     }),
   ),
 
-  // Editais
+  // Edital
   http.get(
     url('/v1/editais/:editalId'),
     rota(({ params }) => {
@@ -116,128 +196,39 @@ export const handlers = [
       return edital ? HttpResponse.json(edital) : naoEncontrado()
     }),
   ),
-  http.put(
-    url('/v1/editais/:editalId/feedback'),
-    rota(async ({ params, request }) => {
-      const editalId = String(params.editalId)
-      if (!editais().some((e) => e.id === editalId)) return naoEncontrado()
-      const { valor } = (await request.json()) as { valor: Feedback }
-      banco.feedbacks.set(editalId, valor)
-      return HttpResponse.json({ editalId, valor, atualizadoEm: new Date().toISOString() })
-    }),
-  ),
-  http.delete(
-    url('/v1/editais/:editalId/feedback'),
-    rota(({ params }) => {
-      banco.feedbacks.delete(String(params.editalId))
-      return new HttpResponse(null, { status: 204 })
+
+  // Certidões (só decisor)
+  http.get(
+    url('/v1/certidoes'),
+    soDecisor(() => {
+      const itens = cenarioAtual() === 'vazio' ? [] : banco.certidoes.map(calcularCertidao)
+      itens.sort((a, b) => a.diasRestantes - b.diasRestantes || a.nome.localeCompare(b.nome, 'pt-BR'))
+      return HttpResponse.json({ itens })
     }),
   ),
   http.put(
-    url('/v1/editais/:editalId/acompanhamento'),
-    rota(async ({ params, request }) => {
-      const editalId = String(params.editalId)
-      if (!editais().some((e) => e.id === editalId)) return naoEncontrado()
-      const corpo = (await request.json().catch(() => ({}))) as { etapas?: Etapa[] }
-      const atual = banco.acompanhamentos.get(editalId)
-      const etapas =
-        corpo.etapas ?? atual?.etapas ?? ETAPAS_PADRAO.map((titulo) => ({ titulo, concluida: false }))
-      banco.acompanhamentos.set(editalId, { etapas, atualizadoEm: new Date().toISOString() })
-      return HttpResponse.json(acompanhamentoDe(editalId))
-    }),
-  ),
-  http.delete(
-    url('/v1/editais/:editalId/acompanhamento'),
-    rota(({ params }) => {
-      return banco.acompanhamentos.delete(String(params.editalId))
-        ? new HttpResponse(null, { status: 204 })
-        : naoEncontrado()
-    }),
-  ),
-  http.get(
-    url('/v1/acompanhamentos'),
-    rota(({ request }) => {
-      const params = new URL(request.url).searchParams
-      const itens = listaVazia()
-        ? []
-        : [...banco.acompanhamentos.keys()]
-            .map(acompanhamentoDe)
-            .filter((a): a is Acompanhamento => a !== undefined)
-            .sort((a, b) => a.edital.dataLimiteProposta.localeCompare(b.edital.dataLimiteProposta))
-      return HttpResponse.json(paginar(itens, params))
-    }),
-  ),
+    url('/v1/certidoes/:certidaoId/renovacao'),
+    soDecisor(async ({ params, request }) => {
+      const indice = banco.certidoes.findIndex((c) => c.id === params.certidaoId)
+      if (indice < 0) return naoEncontrado()
+      const atual = banco.certidoes[indice]
 
-  // Certidões
-  http.get(
-    url('/v1/certidoes'),
-    rota(() => HttpResponse.json({ itens: listaVazia() ? [] : banco.certidoes })),
-  ),
-  http.post(
-    url('/v1/certidoes'),
-    rota(async ({ request }) => {
-      const entrada = (await request.json()) as CertidaoEntrada
-      if (!entrada.dataValidade) {
-        return erro(400, {
-          codigo: 'VALIDACAO',
-          mensagem: 'Dados inválidos.',
-          detalhes: [{ campo: 'dataValidade', mensagem: 'Informe a data de validade.' }],
-        })
-      }
-      const certidao: Certidao = {
-        ...entrada,
-        id: `cert-${banco.proximoId++}`,
-        status: statusPorValidade(entrada.dataValidade),
-      }
-      banco.certidoes.push(certidao)
-      return HttpResponse.json(certidao, {
-        status: 201,
-        headers: { Location: `/v1/certidoes/${certidao.id}` },
-      })
-    }),
-  ),
-  http.patch(
-    url('/v1/certidoes/:certidaoId'),
-    rota(async ({ params, request }) => {
-      const certidao = banco.certidoes.find((c) => c.id === params.certidaoId)
-      if (!certidao) return naoEncontrado()
-      Object.assign(certidao, await request.json())
-      certidao.status = statusPorValidade(certidao.dataValidade)
-      return HttpResponse.json(certidao)
-    }),
-  ),
-  http.delete(
-    url('/v1/certidoes/:certidaoId'),
-    rota(({ params }) => {
-      const antes = banco.certidoes.length
-      banco.certidoes = banco.certidoes.filter((c) => c.id !== params.certidaoId)
-      return banco.certidoes.length < antes ? new HttpResponse(null, { status: 204 }) : naoEncontrado()
-    }),
-  ),
+      const dados = await request.formData()
+      const arquivo = dados.get('arquivo')
+      const validade = String(dados.get('validade') ?? '')
 
-  // Alertas
-  http.get(
-    url('/v1/alertas'),
-    rota(({ request }) => {
-      const params = new URL(request.url).searchParams
-      const tipo = params.get('tipo')
-      const lido = params.get('lido')
-      const itens = listaVazia()
-        ? []
-        : banco.alertas
-            .filter((a) => !tipo || a.tipo === tipo)
-            .filter((a) => lido === null || String(a.lido) === lido)
-            .sort((a, b) => b.criadoEm.localeCompare(a.criadoEm))
-      return HttpResponse.json(paginar(itens, params))
-    }),
-  ),
-  http.patch(
-    url('/v1/alertas/:alertaId'),
-    rota(async ({ params, request }) => {
-      const alerta = banco.alertas.find((a) => a.id === params.alertaId)
-      if (!alerta) return naoEncontrado()
-      alerta.lido = ((await request.json()) as { lido: boolean }).lido
-      return HttpResponse.json(alerta)
+      if (!(arquivo instanceof Blob) || arquivo.size === 0) return validacao('arquivo', 'Envie o arquivo da certidão.')
+      if (!TIPOS_ACEITOS.includes(arquivo.type)) return validacao('arquivo', 'Envie um PDF, JPG ou PNG.')
+      if (arquivo.size > LIMITE_ARQUIVO) return validacao('arquivo', 'O arquivo passa de 5 MB.')
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(validade)) return validacao('validade', 'Informe a nova validade.')
+      if (validade <= hojeEmBrasilia()) return validacao('validade', 'A nova validade precisa ser depois de hoje.')
+      if (validade <= atual.validade) {
+        return validacao('validade', 'A nova validade precisa ser depois da validade atual.')
+      }
+
+      const renovada = calcularCertidao({ id: atual.id, nome: atual.nome, validade })
+      banco.certidoes[indice] = renovada
+      return HttpResponse.json(renovada)
     }),
   ),
 ]

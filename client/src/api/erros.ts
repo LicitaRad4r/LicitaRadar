@@ -1,27 +1,23 @@
-import type { ErroApi } from './tipos'
+import type { CodigoErroApi, ErroApi } from './tipos'
 
-/** Códigos que o front trata de forma especial. Os do back seguem o schema `Erro` do contrato. */
-export type CodigoErro =
-  | 'VALIDACAO'
-  | 'NAO_AUTENTICADO'
-  | 'NAO_ENCONTRADO'
-  | 'SEM_CONEXAO'
-  | 'ERRO_SERVIDOR'
-  | (string & {})
+/** Códigos do contrato, mais o SEM_CONEXAO, que é do front (a requisição nem chegou na API). */
+export type CodigoErro = CodigoErroApi | 'SEM_CONEXAO'
 
 /** Erro padronizado de qualquer chamada à API. É o que os hooks recebem em `error`. */
 export class ApiError extends Error {
   readonly status: number
   readonly codigo: CodigoErro
   readonly detalhes: NonNullable<ErroApi['detalhes']>
+  /** Mesmo id que vai para o log do back. Útil para relatar um problema. */
+  readonly requestId?: string
 
-  constructor(status: number, corpo: Partial<ErroApi> | undefined) {
-    const codigo = corpo?.codigo ?? codigoPorStatus(status)
+  constructor(status: number, corpo: Partial<Omit<ErroApi, 'codigo'>> & { codigo?: CodigoErro } | undefined) {
     super(corpo?.mensagem ?? `Erro ${status} ao chamar a API`)
     this.name = 'ApiError'
     this.status = status
-    this.codigo = codigo
+    this.codigo = corpo?.codigo ?? codigoPorStatus(status)
     this.detalhes = corpo?.detalhes ?? []
+    this.requestId = corpo?.requestId
   }
 
   /** Erros 4xx dependem do que foi enviado, então repetir a chamada não resolve. */
@@ -34,8 +30,9 @@ function codigoPorStatus(status: number): CodigoErro {
   if (status === 0) return 'SEM_CONEXAO'
   if (status === 400 || status === 422) return 'VALIDACAO'
   if (status === 401) return 'NAO_AUTENTICADO'
+  if (status === 403) return 'ACESSO_NEGADO'
   if (status === 404) return 'NAO_ENCONTRADO'
-  return 'ERRO_SERVIDOR'
+  return 'ERRO_INTERNO'
 }
 
 export function erroDeConexao(causa: unknown) {
@@ -54,6 +51,10 @@ export function mensagemAmigavel(erro: unknown): string {
       return 'Não foi possível falar com o servidor. Verifique sua conexão e tente de novo.'
     case 'NAO_AUTENTICADO':
       return 'Sua sessão expirou. Entre de novo para continuar.'
+    case 'EMPRESA_NAO_CONFIGURADA':
+      return 'Configure o perfil da sua empresa para começar a usar o LicitaRadar.'
+    case 'ACESSO_NEGADO':
+      return 'Seu perfil de acesso não permite ver esta informação. Fale com o decisor da sua empresa.'
     case 'NAO_ENCONTRADO':
       return 'Não encontramos o que você procurava. Ele pode ter sido removido.'
     case 'VALIDACAO':
@@ -61,9 +62,7 @@ export function mensagemAmigavel(erro: unknown): string {
         ? 'Confira os campos destacados.'
         : 'Confira os dados preenchidos e tente de novo.'
     default:
-      return erro.status >= 500
-        ? 'O servidor teve um problema. Tente de novo em instantes.'
-        : 'Algo deu errado. Tente de novo.'
+      return 'O servidor teve um problema. Tente de novo em instantes.'
   }
 }
 

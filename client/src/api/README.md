@@ -1,18 +1,17 @@
 # Integração com a API
 
-Como as telas do front conversam com a API do LicitaRadar. O contrato é o `server/openapi.yaml`.
+Como as telas do front conversam com a API do LicitaRadar. O contrato é o `server/openapi.yaml` (v0.3).
 
 ## Como uma tela busca dados
 
 Cada jornada tem um arquivo `api.ts` com hooks prontos. A tela não chama `fetch` nem monta URL.
 
-| Jornada | Arquivo | Hooks |
+| Assunto | Arquivo | Hooks |
 | --- | --- | --- |
-| 1. Perfil | `features/perfil/api.ts` | `usePerfil`, `useSalvarPerfil`, `perfilVazio` |
-| 2. Feed | `features/feed/api.ts` | `useFeed(filtros)` |
-| 3. Editais | `features/editais/api.ts` | `useEdital`, `useFeedback`, `useAcompanhamentos`, `useAcompanhar`, `useDeixarDeAcompanhar` |
-| 4. Certidões | `features/certidoes/api.ts` | `useCertidoes`, `useCriarCertidao`, `useAtualizarCertidao`, `useRemoverCertidao` |
-| 5. Alertas | `features/alertas/api.ts` | `useAlertas`, `useContagemAlertasNaoLidos`, `useMarcarAlerta` |
+| Perfil | `features/perfil/api.ts` | `usePerfil`, `useSalvarPerfil`, `perfilVazio` |
+| Feed e filtros | `features/feed/api.ts` | `useFeed(filtros)` |
+| Edital | `features/editais/api.ts` | `useEdital` |
+| Certidões (só decisor) | `features/certidoes/api.ts` | `useCertidoes`, `useRenovarCertidao` |
 
 Os tipos (`Certidao`, `FeedItem`, `Perfil`...) vêm de `api/tipos.ts`, gerados do contrato.
 
@@ -65,7 +64,7 @@ function aoEnviar(perfil: Perfil) {
 
 Use `salvar.isPending` para desabilitar o botão enquanto envia.
 
-Marcar relevante no feed e marcar alerta como lido mudam a tela na hora e voltam atrás se a API falhar.
+Renovar uma certidão troca a certidão na lista na mesma hora, já na nova ordem de urgência.
 
 ## Mock da API
 
@@ -75,10 +74,13 @@ página estiver aberta.
 
 Para ver um estado em todas as telas, use a URL:
 
-* `localhost:5173/?mock=vazio` listas vazias
-* `localhost:5173/?mock=erro` toda chamada falha
-* `localhost:5173/?mock=lento` respostas demoram 3 segundos
-* `localhost:5173/?mock=sem-login` toda chamada responde 401
+* `?mock=vazio` nenhum edital ingerido e nenhuma certidão
+* `?mock=descartados` o perfil descartou todos os editais
+* `?mock=erro` toda chamada falha
+* `?mock=lento` respostas demoram 3 segundos
+* `?mock=sem-login` toda chamada responde 401
+* `?mock=sem-empresa` as rotas respondem 403 de empresa não configurada
+* `?papel=analista` simula o analista, que não acessa certidões (403)
 
 Quando o back estiver pronto, basta `VITE_API_MOCK=false`.
 
@@ -86,6 +88,9 @@ Quando o back estiver pronto, basta `VITE_API_MOCK=false`.
 
 O token do Firebase Auth vai em `Authorization: Bearer` em toda chamada (`api/client.ts`).
 Sem usuário logado, a chamada vai sem token e a API responde 401.
+
+A empresa e o papel (`decisor` ou `analista`) vêm do token. No primeiro salvamento do perfil a API responde 201
+e grava esses dados no usuário; o `useSalvarPerfil` renova o token sozinho nesse caso.
 
 ## Quando o contrato mudar
 
