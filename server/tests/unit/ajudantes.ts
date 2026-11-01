@@ -1,3 +1,4 @@
+import { armazenamentoMemoria, certidaoRepoMemoria } from './memoria.js'
 import { buildApp } from '../../src/app.js'
 import type { Usuario } from '../../src/auth.js'
 import type { PerfilRepo } from '../../src/perfil/repositorio.js'
@@ -25,6 +26,8 @@ export function criarApp(usuarios: Record<string, Usuario>) {
     logger: false,
     feed: { editais: async () => [], scores: async () => [] },
     perfis,
+    certidoes: certidaoRepoMemoria([]),
+    arquivos: armazenamentoMemoria().armazenamento,
     verificarToken: async (t) => {
       const u = usuarios[t]
       if (!u) throw new Error('token inválido')
