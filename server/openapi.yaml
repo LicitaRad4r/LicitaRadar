@@ -3,7 +3,7 @@ info:
   title: LicitaRadar API
   version: 0.3.0
   description: |
-    Contrato de interface (rascunho v0.2, Checkpoint 2) da API do LicitaRadar.
+    Contrato de interface (v0.3, Checkpoint 2) da API do LicitaRadar.
     Serve de combinado entre backend e frontend. Depois do congelamento da v0.2, campo novo entra livre;
     renomear ou remover um campo só com acordo do backend e do frontend.
 
@@ -17,7 +17,8 @@ info:
       vira `decisor`); depois disso o cliente precisa renovar o token (por exemplo, `getIdToken(true)`).
       Sem o claim `empresaId`, as rotas de negócio respondem `403` com `EMPRESA_NAO_CONFIGURADA`.
     - Permissões por papel (RF03, US06): o `analista` não acessa certidões nem documentos legais ou financeiros. Todas as rotas `/v1/certidoes` respondem `403` com `ACESSO_NEGADO` para ele, e nada é gravado. Perfil, feed e detalhe de edital são liberados para os dois papéis (US08). O `decisor` acessa tudo.
-    - A empresa vem só do token. Se a requisição trouxer `orgId` ou `empresaId` na query diferente do claim, a resposta é `403` com `ACESSO_NEGADO`.
+    - A empresa vem só do token. Se a requisição trouxer `orgId` ou `empresaId`, na query ou no corpo, diferente do claim, a resposta é `403` com `ACESSO_NEGADO` (CT-SEG-009). Valor nulo ou ausente é ignorado.
+    - Nome do claim: a documentação (CT-SEG-004 e CT-SEG-009) usa `orgId` e este contrato usa `empresaId`. Até o grupo escolher um nome, a API aceita os dois no token (`empresaId`, ou `orgId` na falta dele).
     - Token sem o claim `empresaId` ou sem o claim `role` responde `403` com `EMPRESA_NAO_CONFIGURADA` nas rotas de negócio.
     - O frontend lê o papel (`role`) diretamente do ID token (claim), por exemplo para montar o painel do Decisor; não há rota para isso.
     - Um recurso de outra empresa responde `403` com `ACESSO_NEGADO`, sem revelar dados do recurso (CT-SEG-007 e CT-SEG-008). Id inexistente responde `404`.
@@ -25,7 +26,7 @@ info:
     - Logs e respostas de erro não incluem dados pessoais nem do recurso: em bloqueios, o log traz só `requestId`, rota e status (CT-SEG-011).
 
     Rotas: o prefixo canônico é `/v1`, e as mesmas rotas respondem também sem prefixo (por exemplo `GET /feed`, como no plano do Checkpoint 2).
-    Escopo do Checkpoint 2: feed (`GET /feed`), filtros (mesmo endpoint), certidões (`GET /certidoes` e `PUT /certidoes/{id}/renovacao`, só decisor) e segurança. Operações marcadas com `x-checkpoint: posterior` ficam para depois.
+    Escopo do Checkpoint 2: feed (`GET /feed`), filtros (mesmo endpoint), certidões (`GET /certidoes`, `GET /certidoes/{id}` e `PUT /certidoes/{id}/renovacao`, só decisor) e segurança. Operações marcadas com `x-checkpoint: posterior` ficam para depois.
 
     Mudanças da v0.1 para a v0.2
     - Documentado que todo acesso a dados passa pela API (regras deny-all do Firestore).
@@ -57,6 +58,10 @@ info:
     - `Faixa` ganha `baixa` (0 a 49); alta vai de 80 a 100 e média de 50 a 79.
     - `Certidao` passa a `id`, `nome`, `validade`, `diasRestantes` e `status`; renovação e envio recebem `validade`.
     - `Erro` passa a trazer `requestId`.
+    - Novo `GET /v1/certidoes/{certidaoId}` (CT-SEG-007): decisor da empresa dona; outra empresa responde `403` sem dados.
+    - Todo `Erro` (401, 403, 404, 400, 500) traz `requestId`, gerado no servidor.
+    - `GET` e `PUT /v1/perfil` também podem responder `403` `ACESSO_NEGADO` (`orgId`/`empresaId` de outra empresa, CT-SEG-009).
+    - `FeedItem` passa a exigir também `municipio`, `dataPublicacao` e `valorEstimado` (podem ser nulos), que a API sempre devolve.
     - Saíram as rotas sem base na documentação: feedback do edital, acompanhamento e etapas, alertas, e edição e exclusão de certidão. Se o grupo definir esses comportamentos, voltam com o formato definido.
 
 servers:
@@ -104,6 +109,8 @@ paths:
                 $ref: '#/components/schemas/Perfil'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
     put:
       operationId: salvarPerfil
       tags: [Perfil]
@@ -132,6 +139,8 @@ paths:
           $ref: '#/components/responses/Validacao'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
   /v1/feed:
     get:
       operationId: listarFeed
@@ -299,6 +308,29 @@ paths:
         '403':
           $ref: '#/components/responses/SemEmpresa'
       x-checkpoint: posterior
+  /v1/certidoes/{certidaoId}:
+    get:
+      operationId: obterCertidao
+      tags: [Certidões]
+      summary: Consulta uma certidão da empresa
+      description: >-
+        Somente `decisor`; `analista` recebe 403 `ACESSO_NEGADO`. Certidão de outra empresa responde 403
+        `ACESSO_NEGADO` sem revelar nenhum dado dela (CT-SEG-007).
+      parameters:
+        - $ref: '#/components/parameters/CertidaoId'
+      responses:
+        '200':
+          description: A certidão, com `diasRestantes` e `status` calculados no servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Certidao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
   /v1/certidoes/{certidaoId}/renovacao:
     put:
       operationId: renovarCertidao
@@ -514,8 +546,11 @@ components:
         - titulo
         - orgao
         - uf
+        - municipio
         - modalidade
         - prazo
+        - dataPublicacao
+        - valorEstimado
         - score
         - faixa
       properties:
