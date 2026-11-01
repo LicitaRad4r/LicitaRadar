@@ -50,7 +50,8 @@ export function registrarAuth(app: FastifyInstance, verificar: VerificarToken) {
     for (const origem of [(req.query ?? {}) as Record<string, unknown>, corpo]) {
       for (const chave of ['orgId', 'empresaId']) {
         const valor = origem[chave]
-        if (valor !== undefined && valor !== usuario.empresaId) throw acessoNegado()
+        // `null` é o eco do `empresaId` do GET /perfil de quem ainda não tem empresa: não é outra empresa.
+        if (valor !== undefined && valor !== null && valor !== usuario.empresaId) throw acessoNegado()
       }
     }
   })

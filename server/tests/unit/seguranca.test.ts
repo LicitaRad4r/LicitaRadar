@@ -147,6 +147,15 @@ describe('segurança (CT-SEG)', () => {
     expect((await app.inject({ method: 'GET', url: '/feed?orgId=emp-a', headers: auth('decisorA') })).statusCode).toBe(200)
   })
 
+  it('PUT /perfil de quem ainda não tem empresa aceita o eco do GET (empresaId nulo) e responde 201', async () => {
+    const { app } = criar()
+    const corpo = { empresaId: null, ufs: ['DF'], termosChave: ['notebook'], segmentos: [], modalidades: [], valorMinimo: null, valorMaximo: null, prazoMinimoDiasUteis: null }
+    const r = await app.inject({ method: 'PUT', url: '/v1/perfil', headers: auth('semEmpresa'), payload: corpo })
+    expect(r.statusCode).toBe(201)
+    const outra = await app.inject({ method: 'PUT', url: '/v1/perfil', headers: auth('semEmpresa'), payload: { ...corpo, empresaId: 'emp-b' } })
+    expect(outra.statusCode).toBe(403)
+  })
+
   it('CT-SEG-011: erro só traz codigo, mensagem e requestId; sem dados do recurso ou pessoais, no corpo e no log', async () => {
     const linhas: string[] = []
     const { app } = criar(linhas)
