@@ -34,3 +34,15 @@ export function textoPrazo(dias: number) {
   if (dias === 1) return 'Encerra amanhã'
   return `Encerra em ${dias} dias`
 }
+
+const diaPorExtenso = new Intl.DateTimeFormat('pt-BR', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+})
+
+/** "2026-11-14" vira "14 de nov de 2026". Para datas sem hora (dias), sem depender do fuso de quem vê. */
+export function formatarDia(dia: string) {
+  return diaPorExtenso.format(new Date(`${dia}T00:00:00Z`)).replace('.', '')
+}

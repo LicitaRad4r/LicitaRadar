@@ -54,7 +54,8 @@ export function useRenovarCertidao() {
       queryClient.setQueryData<ListaCertidoes>(chaves.certidoes, (lista) =>
         lista && { itens: ordenarPorUrgencia(lista.itens.map((c) => (c.id === renovada.id ? renovada : c))) },
       )
-      return queryClient.invalidateQueries({ queryKey: chaves.certidoes })
+      // Confirma com o back em segundo plano, sem segurar o formulário aberto até a lista voltar.
+      void queryClient.invalidateQueries({ queryKey: chaves.certidoes })
     },
   })
 }

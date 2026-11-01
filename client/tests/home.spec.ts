@@ -42,3 +42,26 @@ test('filtra por estado e modalidade com etiquetas removíveis e mantém os filt
   await ativas.getByRole('button', { name: 'Remover filtro GO' }).click()
   await expect(page).toHaveURL(/\?modalidade=pregao_eletronico$/)
 })
+
+test('renova uma certidão urgente e ela passa para Em dia', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('navigation', { name: 'Principal' }).getByRole('link', { name: 'Certidões' }).click()
+
+  const emAlerta = page.getByRole('region', { name: /Precisam de atenção/ })
+  await expect(emAlerta.getByRole('listitem', { name: 'CRF do FGTS' })).toBeVisible()
+  await emAlerta.getByRole('button', { name: 'Renovar certidão CRF do FGTS' }).click()
+
+  const dialogo = page.getByRole('dialog', { name: 'Renovar certidão' })
+  await dialogo.getByLabel('Arquivo da certidão nova').setInputFiles({
+    name: 'fgts.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from('%PDF-1.4 certidao'),
+  })
+  const daquiAUmAno = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  await dialogo.getByLabel('Nova validade').fill(daquiAUmAno)
+  await dialogo.getByRole('button', { name: 'Salvar renovação' }).click()
+
+  await expect(dialogo).toBeHidden()
+  await expect(page.getByRole('region', { name: /Em dia/ }).getByRole('listitem', { name: 'CRF do FGTS' })).toBeVisible()
+  await expect(page.getByText('Certidão renovada.')).toBeVisible()
+})

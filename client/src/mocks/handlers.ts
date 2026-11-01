@@ -217,7 +217,11 @@ export const handlers = [
       const arquivo = dados.get('arquivo')
       const validade = String(dados.get('validade') ?? '')
 
-      if (!(arquivo instanceof Blob) || arquivo.size === 0) return validacao('arquivo', 'Envie o arquivo da certidão.')
+      // Checa pelo formato (tamanho e tipo) em vez de `instanceof Blob`: nos testes o Blob do jsdom
+      // é outra classe que o do fetch do Node.
+      const ehArquivo = (valor: unknown): valor is Blob =>
+        typeof valor === 'object' && valor !== null && 'size' in valor && 'type' in valor
+      if (!ehArquivo(arquivo) || arquivo.size === 0) return validacao('arquivo', 'Envie o arquivo da certidão.')
       if (!TIPOS_ACEITOS.includes(arquivo.type)) return validacao('arquivo', 'Envie um PDF, JPG ou PNG.')
       if (arquivo.size > LIMITE_ARQUIVO) return validacao('arquivo', 'O arquivo passa de 5 MB.')
       if (!/^\d{4}-\d{2}-\d{2}$/.test(validade)) return validacao('validade', 'Informe a nova validade.')

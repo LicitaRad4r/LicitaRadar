@@ -141,3 +141,23 @@
     @apply font-sans;
     }
 }
+/* Destaque breve na certidão que acabou de ser renovada (some sozinho). */
+@theme {
+    --animate-destaque: destaque 2.4s ease-out;
+
+    @keyframes destaque {
+        0%,
+        40% {
+            background-color: var(--radar-suave);
+        }
+        100% {
+            background-color: transparent;
+        }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .animate-destaque {
+        animation: none;
+    }
+}
