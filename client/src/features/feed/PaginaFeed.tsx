@@ -9,11 +9,15 @@ import type { MotivoVazio } from '@/api/tipos'
 import { useFeed } from './api'
 import { BarraDeFiltros } from './BarraDeFiltros'
 import { ItemDoFeed } from './ItemDoFeed'
-import { TAMANHO_PAGINA, useFiltrosDaUrl } from './useFiltrosDaUrl'
+import { TAMANHO_PAGINA } from './filtros'
+import { useFiltrosDaUrl } from './useFiltrosDaUrl'
 
-/** Feed (issue #15): editais do PNCP ordenados por aderência ao perfil. */
+/**
+ * Feed (issue #15) com a barra de filtros (issue #16):
+ * editais do PNCP ordenados por aderência ao perfil.
+ */
 export function PaginaFeed() {
-  const { filtros, consulta, alterar, limpar, temFiltro } = useFiltrosDaUrl()
+  const { filtros, consulta, etiquetas, temFiltro, alterar, limpar } = useFiltrosDaUrl()
   const feed = useFeed(consulta)
 
   // Se a página pedida passou do fim (ex.: depois de filtrar), volta para a última que existe.
@@ -21,8 +25,8 @@ export function PaginaFeed() {
   useEffect(() => {
     if (total === undefined || feed.isPlaceholderData) return
     const ultima = Math.max(1, Math.ceil(total / TAMANHO_PAGINA))
-    if (filtros.pagina > ultima) alterar({ pagina: ultima })
-  }, [total, filtros.pagina, feed.isPlaceholderData, alterar])
+    if (filtros.page > ultima) alterar({ page: ultima })
+  }, [total, filtros.page, feed.isPlaceholderData, alterar])
 
   return (
     <section aria-labelledby="titulo-feed" className="space-y-6">
@@ -31,13 +35,11 @@ export function PaginaFeed() {
           Editais para você
         </h1>
         <p className="text-sm text-muted-foreground" aria-live="polite">
-          {feed.data && feed.data.total > 0
-            ? `${feed.data.total} ${feed.data.total === 1 ? 'edital combina' : 'editais combinam'} com o seu perfil, dos mais aderentes para os menos.`
-            : 'Editais do PNCP ordenados pela aderência ao seu perfil.'}
+          {resumo(feed.data?.total, temFiltro)}
         </p>
       </header>
 
-      <BarraDeFiltros filtros={filtros} alterar={alterar} limpar={limpar} temFiltro={temFiltro} />
+      <BarraDeFiltros filtros={filtros} etiquetas={etiquetas} alterar={alterar} limpar={limpar} />
 
       <EstadoDaConsulta
         consulta={feed}
@@ -62,7 +64,7 @@ export function PaginaFeed() {
               tamanho={pagina.pageSize}
               total={pagina.total}
               aoMudar={(nova) => {
-                alterar({ pagina: nova })
+                alterar({ page: nova })
                 window.scrollTo?.({ top: 0, behavior: 'smooth' })
               }}
             />
@@ -71,6 +73,14 @@ export function PaginaFeed() {
       </EstadoDaConsulta>
     </section>
   )
+}
+
+function resumo(total: number | undefined, temFiltro: boolean) {
+  if (!total) return 'Editais do PNCP ordenados pela aderência ao seu perfil.'
+  const quantos = total === 1 ? '1 edital combina' : `${total} editais combinam`
+  return temFiltro
+    ? `${quantos} com o seu perfil e os filtros, dos mais aderentes para os menos.`
+    : `${quantos} com o seu perfil, dos mais aderentes para os menos.`
 }
 
 /**
