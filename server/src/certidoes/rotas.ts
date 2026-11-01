@@ -70,6 +70,15 @@ export function rotasCertidoes(
     return { itens }
   })
 
+  // Uma certidão da empresa. De outra empresa: 403 sem revelar nada dela (CT-SEG-007).
+  app.get<{ Params: { certidaoId: string } }>('/certidoes/:certidaoId', async (req) => {
+    exigirPapel(req, 'decisor')
+    const c = await repo.obter(req.params.certidaoId)
+    if (!c) throw naoEncontrado('Certidão não encontrada.')
+    exigirMesmaEmpresa(req, c.empresaId)
+    return paraResposta(c, agora())
+  })
+
   app.put<{ Params: { certidaoId: string } }>('/certidoes/:certidaoId/renovacao', async (req) => {
     const { empresaId } = exigirPapel(req, 'decisor')
 
