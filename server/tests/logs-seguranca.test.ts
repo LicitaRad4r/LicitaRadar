@@ -1,7 +1,7 @@
 import { Writable } from 'node:stream'
 import { describe, test, expect } from 'vitest'
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import { buildApp } from '../app'
+import { buildApp } from '../../src/app'
 
 function criarApp() {
   const linhas: string[] = []
