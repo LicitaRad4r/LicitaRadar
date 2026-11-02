@@ -9,9 +9,10 @@
     "start": "node dist/server.js",
     "lint": "oxlint",
     "test": "vitest",
-    "test:unit": "vitest run tests/unit --passWithNoTests",
+    "test:unit": "vitest run tests/unit tests/contract --passWithNoTests",
+    "test:contract": "vitest run tests/contract",
     "test:int": "vitest run tests/integration",
-    "test:cov": "vitest run tests/unit --coverage"
+    "test:cov": "vitest run tests/unit tests/contract --coverage"
   },
   "dependencies": {
     "fastify": "^5.12.5",
