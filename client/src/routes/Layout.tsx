@@ -1,4 +1,4 @@
-import { Link, Outlet } from 'react-router'
+import { Link, NavLink, Outlet } from 'react-router'
 import { API_MOCK } from '@/api/config'
 import { useSaudeApi } from '@/api/saude'
 import { cn } from '@/lib/utils'
@@ -26,14 +26,40 @@ function StatusApi() {
   )
 }
 
+function ItemDoMenu({ para, children }: { para: string; children: string }) {
+  return (
+    <NavLink
+      to={para}
+      end
+      className={({ isActive }) =>
+        cn(
+          'rounded-md px-2.5 py-1.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/50',
+          isActive ? 'bg-white/12 text-white' : 'text-white/70 hover:text-white',
+        )
+      }
+    >
+      {children}
+    </NavLink>
+  )
+}
+
 export function Layout() {
   return (
     <div className="min-h-svh bg-background">
       <header className="bg-tinta text-white">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
-          <Link to="/" className="rounded-md text-lg font-semibold tracking-tight outline-none focus-visible:ring-3 focus-visible:ring-white/50">
-            LicitaRadar
-          </Link>
+          <div className="flex items-center gap-6">
+            <Link
+              to="/"
+              className="rounded-md text-lg font-semibold tracking-tight outline-none focus-visible:ring-3 focus-visible:ring-white/50"
+            >
+              LicitaRadar
+            </Link>
+            <nav aria-label="Principal" className="flex items-center gap-1">
+              <ItemDoMenu para="/">Editais</ItemDoMenu>
+              <ItemDoMenu para="/certidoes">Certidões</ItemDoMenu>
+            </nav>
+          </div>
           <div className="flex items-center gap-4">
             <StatusApi />
           </div>
