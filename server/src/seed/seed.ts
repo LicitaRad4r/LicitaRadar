@@ -8,7 +8,7 @@
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 import { iniciarFirebase } from '../infra/firebase.js'
-import { EMPRESAS, editaisGolden, scoresGolden } from './golden.js'
+import { EMPRESAS, certidoesGolden, editaisGolden, scoresGolden } from './golden.js'
 
 const SENHA_LOCAL = 'senha-local-123'
 
@@ -39,9 +39,11 @@ async function main() {
   for (const e of EMPRESAS) lote.set(db.collection('empresas').doc(e.id), { nome: e.nome, perfil: e.perfil })
   for (const { id, ...resto } of editais) lote.set(db.collection('editais').doc(id), resto)
   for (const s of scores) lote.set(db.collection('scores').doc(`${s.empresaId}_${s.editalId}`), s)
+  const certidoes = certidoesGolden(agora)
+  for (const { id, ...resto } of certidoes) lote.set(db.collection('certidoes').doc(id), resto)
   await lote.commit()
 
-  console.log(`Seed ok: ${USUARIOS.length} usuários, ${EMPRESAS.length} empresas, ${editais.length} editais, ${scores.length} scores.`)
+  console.log(`Seed ok: ${USUARIOS.length} usuários, ${EMPRESAS.length} empresas, ${editais.length} editais, ${scores.length} scores, ${certidoes.length} certidões.`)
   console.log(`Logins locais: ${USUARIOS.map((u) => u.email).join(', ')} (senha ${SENHA_LOCAL})`)
 }
 
