@@ -134,6 +134,16 @@ describe('Jornada 3: GET /certidoes', () => {
   })
 })
 
+describe('Jornada 3: GET /certidoes/{id}', () => {
+  it('devolve a certidão da própria empresa; inexistente 404', async () => {
+    const { app } = criar()
+    const r = await app.inject({ method: 'GET', url: '/v1/certidoes/cert-a-mais3', headers: auth('decisorA') })
+    expect(r.statusCode).toBe(200)
+    expect(r.json()).toMatchObject({ id: 'cert-a-mais3', diasRestantes: 3, status: 'urgente' })
+    expect((await app.inject({ method: 'GET', url: '/certidoes/nao-existe', headers: auth('decisorA') })).statusCode).toBe(404)
+  })
+})
+
 describe('Jornada 3: PUT /certidoes/{id}/renovacao', () => {
   const nova = somarDias(HOJE, 365)
 
@@ -207,7 +217,7 @@ describe('Jornada 3: PUT /certidoes/{id}/renovacao', () => {
     expect(r.json()).toMatchObject({ diasRestantes: 31, status: 'em_dia' })
   })
 
-  it('CT-SEG-006: certidão de outra empresa → 403 e nada é gravado', async () => {
+  it('CT-SEG-008: PUT renovação de certidão de outra empresa → 403 e ela fica inalterada', async () => {
     const { app, mapa, gravados } = criar()
     const antes = structuredClone(mapa.get('cert-a-mais3')!)
     const r = await renovar(app, 'cert-a-mais3', { validade: nova, arquivo: PDF }, 'decisorB')
@@ -216,7 +226,7 @@ describe('Jornada 3: PUT /certidoes/{id}/renovacao', () => {
     expect(gravados.size).toBe(0)
   })
 
-  it('CT-SEG-005: analista → 403 e nada é gravado', async () => {
+  it('CT-SEG-006: analista em PUT renovação → 403 e nada é gravado', async () => {
     const { app, mapa, gravados } = criar()
     const antes = structuredClone(mapa.get('cert-a-mais3')!)
     const r = await renovar(app, 'cert-a-mais3', { validade: nova, arquivo: PDF }, 'analistaA')

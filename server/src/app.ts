@@ -1,4 +1,5 @@
 import type { Writable } from 'node:stream'
+import { randomUUID } from 'node:crypto'
 import multipart from '@fastify/multipart'
 import Fastify, { LogController, type FastifyInstance } from 'fastify'
 import { rotasCertidoes } from './certidoes/rotas.js'
@@ -37,9 +38,15 @@ const PREFIXOS = ['/v1', '']
 
 /** Monta a API sem abrir porta (usado pelo servidor e pelos testes). */
 export function buildApp(deps: Dependencias): FastifyInstance {
-  const logger = deps.logStream ? { level: 'info', stream: deps.logStream } : (deps.logger ?? true)
+  // `base: null` tira pid e hostname: o log de bloqueio traz só requestId, rota e status (CT-SEG-011).
+  const logger = deps.logStream
+    ? { level: 'info', base: null, stream: deps.logStream }
+    : deps.logger === false
+      ? false
+      : { level: 'info', base: null }
   // Sem o log padrão de requisição (traz a URL); logamos só requestId, rota e status.
-  const app = Fastify({ logger, logController: new LogController({ disableRequestLogging: true }) })
+  // requestId gerado aqui (nunca aceito do cliente) e devolvido em todo erro e em todo log.
+  const app = Fastify({ genReqId: () => randomUUID(), logger, logController: new LogController({ disableRequestLogging: true, requestIdLogLabel: 'requestId' }) })
 
   const agora = deps.agora ?? (() => new Date())
   const rotas: string[] = []
@@ -48,7 +55,7 @@ export function buildApp(deps: Dependencias): FastifyInstance {
     for (const m of [r.method].flat()) if (m !== 'HEAD') rotas.push(`${m} ${r.url}`)
   })
   app.addHook('onResponse', async (req, reply) => {
-    req.log.info({ requestId: req.id, route: req.routeOptions.url, status: reply.statusCode }, 'requisicao')
+    req.log.info({ route: req.routeOptions.url, status: reply.statusCode }, 'requisicao')
   })
 
   registrarErros(app)
