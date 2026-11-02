@@ -30,10 +30,13 @@ export interface paths {
         };
         /**
          * Lê o Perfil de Fornecedor da empresa
-         * @description Se o perfil ainda não foi configurado, devolve os campos vazios (`ufs` vazio significa nacional).
+         * @description Se o token ainda não tem o claim `empresaId` ou o perfil não foi configurado, devolve 200 com os campos vazios (`ufs` vazio significa nacional) e `empresaId` nulo.
          */
         get: operations["obterPerfil"];
-        /** Salva o Perfil de Fornecedor (substitui o anterior) */
+        /**
+         * Salva o Perfil de Fornecedor (substitui o anterior)
+         * @description No primeiro salvamento (proposta), o backend cria a empresa, grava os claims `empresaId` e `role` no usuário e responde `201`. Depois disso, o cliente deve renovar o ID token antes de chamar as demais rotas. Nos salvamentos seguintes responde `200`.
+         */
         put: operations["salvarPerfil"];
         post?: never;
         delete?: never;
@@ -50,10 +53,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Lista editais ranqueados por aderência
-         * @description Aplica o Perfil de Fornecedor e, por cima, os filtros de refinamento enviados na consulta
-         *     (que não alteram o perfil salvo). Ordenado por `score`, do maior para o menor.
-         *     Editais descartados não aparecem.
+         * Feed de editais ranqueados por aderência
+         * @description Devolve só editais não descartados pelo perfil, com o score já calculado (a API apenas lê; nenhuma chamada ao PNCP). Ordem fixa: `score` decrescente; empate por prazo mais próximo, depois publicação mais recente, depois `id`. Os filtros só restringem a lista: não recalculam o score e não trazem de volta editais descartados. Filtragem e paginação no servidor. Parâmetro inválido (texto onde se espera número, valor negativo, mínimo maior que o máximo, data inválida) responde `400` com o campo. Meta de desempenho: p95 de leitura de até 800 ms (CT-FILT-009).
          */
         get: operations["listarFeed"];
         put?: never;
@@ -81,69 +82,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/editais/{editalId}/feedback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Marca o edital como relevante ou irrelevante
-         * @description Alimenta a métrica da demo (quantos dos 10 primeiros resultados o usuário considera úteis).
-         */
-        put: operations["registrarFeedback"];
-        post?: never;
-        /** Remove a marcação de relevância */
-        delete: operations["removerFeedback"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/editais/{editalId}/acompanhamento": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Passa a acompanhar o edital ou atualiza as etapas de preparação
-         * @description Idempotente. Sem `etapas` no corpo, o backend cria as etapas padrão de preparação (proposta).
-         *     Com `etapas`, substitui a lista.
-         */
-        put: operations["acompanharEdital"];
-        post?: never;
-        /** Deixa de acompanhar o edital */
-        delete: operations["deixarDeAcompanharEdital"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/acompanhamentos": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Lista os editais acompanhados pela empresa
-         * @description Ordenado pela data limite de envio de propostas, do mais próximo ao mais distante.
-         */
-        get: operations["listarAcompanhamentos"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/certidoes": {
         parameters: {
             query?: never;
@@ -151,10 +89,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Lista as certidões da empresa */
+        /**
+         * Lista as certidões da empresa
+         * @description Somente `decisor`; `analista` recebe 403 `ACESSO_NEGADO`. Lista as certidões da empresa do token com `diasRestantes` e `status` calculados no servidor, da mais urgente para a menos urgente.
+         */
         get: operations["listarCertidoes"];
         put?: never;
-        /** Cadastra uma certidão */
+        /**
+         * Envia uma certidão (arquivo e validade)
+         * @description Somente `decisor`. PDF, JPG ou PNG de até 5 MB. Sem validade informada, a resposta é 400 (US14).
+         */
         post: operations["criarCertidao"];
         delete?: never;
         options?: never;
@@ -162,7 +106,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/certidoes/{certidaoId}": {
+    "/v1/certidoes/{certidaoId}/renovacao": {
         parameters: {
             query?: never;
             header?: never;
@@ -170,51 +114,16 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
-        post?: never;
-        /** Remove uma certidão */
-        delete: operations["removerCertidao"];
-        options?: never;
-        head?: never;
-        /** Atualiza campos de uma certidão (por exemplo, a nova validade) */
-        patch: operations["atualizarCertidao"];
-        trace?: never;
-    };
-    "/v1/alertas": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
         /**
-         * Lista os alertas da empresa
-         * @description Mais recentes primeiro.
+         * Renova uma certidão com o novo arquivo e a nova validade
+         * @description Somente `decisor`; `analista` recebe 403 `ACESSO_NEGADO` e nada é gravado. O arquivo anterior fica inativo (US15). Validade passada, igual ou anterior à atual, ou arquivo inválido (tipo ou mais de 5 MB) respondem 400 indicando o campo, e a certidão anterior fica intacta. Certidão de outra empresa responde 403.
          */
-        get: operations["listarAlertas"];
-        put?: never;
+        put: operations["renovarCertidao"];
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
-        trace?: never;
-    };
-    "/v1/alertas/{alertaId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Marca um alerta como lido ou não lido */
-        patch: operations["atualizarAlerta"];
         trace?: never;
     };
 }
@@ -228,23 +137,26 @@ export interface components {
             timestamp: string;
         };
         Erro: {
-            /** @description Código estável para o frontend tratar (por exemplo, VALIDACAO, NAO_AUTENTICADO, NAO_ENCONTRADO). */
-            codigo: string;
+            /**
+             * @description Código estável para o frontend tratar.
+             * @enum {string}
+             */
+            codigo: "VALIDACAO" | "NAO_AUTENTICADO" | "EMPRESA_NAO_CONFIGURADA" | "NAO_ENCONTRADO" | "ACESSO_NEGADO" | "ERRO_INTERNO";
             mensagem: string;
             detalhes?: {
                 campo: string;
                 mensagem: string;
             }[];
+            /** @description Identificador da requisição, o mesmo que vai para o log. */
+            requestId: string;
         };
         /** @example DF */
         Uf: string;
         /**
-         * @description Alta aderência (topo do feed) ou média (oportunidade parcial, meio do feed).
+         * @description Alta: nota de 80 a 100. Média: 50 a 79. Baixa: 0 a 49 (passou no funil, pontua pouco). Editais descartados pelo funil não aparecem.
          * @enum {string}
          */
-        Faixa: "alta" | "media";
-        /** @enum {string} */
-        Feedback: "relevante" | "irrelevante";
+        Faixa: "alta" | "media" | "baixa";
         /**
          * @description Macrocategoria de atuação (lista inicial, pode crescer).
          * @enum {string}
@@ -255,110 +167,72 @@ export interface components {
          * @enum {string}
          */
         Modalidade: "pregao_eletronico" | "concorrencia" | "dispensa";
-        /**
-         * @description Critério do perfil atendido pelo edital (vira tag visual no feed).
-         * @enum {string}
-         */
-        Criterio: "termo" | "uf" | "valor" | "prazo" | "segmento" | "modalidade";
         Perfil: {
+            /** @description Empresa do usuário (claim `empresaId`). Somente leitura; nulo antes do primeiro PUT. */
+            readonly empresaId?: string | null;
             /** @description Vazio significa nacional (todo o Brasil). */
             ufs?: components["schemas"]["Uf"][];
             termosChave?: string[];
             segmentos?: components["schemas"]["Segmento"][];
+            /** @description Proposta: a primeira da lista é a modalidade prioritária do Score (10 pontos) e as demais são secundárias (5 pontos). A documentação não define como a empresa marca a prioritária. */
             modalidades?: components["schemas"]["Modalidade"][];
             valorMinimo?: number | null;
             valorMaximo?: number | null;
-            /** @description Oculta editais com prazo de envio menor que isto (proposta de exemplo do filtros.md é 3). */
+            /** @description Oculta editais com prazo restante menor que isto, em dias úteis (padrão 3). */
             prazoMinimoDiasUteis?: number | null;
         };
-        EditalResumo: {
+        FeedItem: {
             /** @description Número de controle do PNCP. */
             id: string;
+            /** @description Objeto do edital. */
+            titulo: string;
             orgao: string;
-            objeto: string;
-            modalidade?: string;
             uf: components["schemas"]["Uf"];
             municipio?: string | null;
-            valorEstimado?: number | null;
+            modalidade: components["schemas"]["Modalidade"];
+            /**
+             * Format: date-time
+             * @description Prazo para envio de propostas.
+             */
+            prazo: string;
             /** Format: date-time */
             dataPublicacao?: string;
-            /** Format: date-time */
-            dataLimiteProposta: string;
-            /** Format: uri */
-            linkPncp?: string;
-        };
-        FeedItem: components["schemas"]["EditalResumo"] & {
+            valorEstimado?: number | null;
             score: number;
             faixa: components["schemas"]["Faixa"];
-            criteriosAtendidos: components["schemas"]["Criterio"][];
-            diasParaEncerrar: number;
-            feedback?: components["schemas"]["Feedback"] | null;
-            acompanhando?: boolean;
         };
         FeedPagina: {
             itens: components["schemas"]["FeedItem"][];
-            pagina: number;
-            tamanho: number;
+            page: number;
+            pageSize: number;
+            /** @description Itens que combinam com os filtros. */
             total: number;
+            /** @description Total de editais ingeridos, sem perfil nem filtros. */
+            totalIngeridos: number;
+            /** @description Só vem preenchido quando a lista está vazia: `sem_editais` (nada ingerido), `todos_descartados` (o perfil descartou tudo) ou `filtros` (os filtros eliminaram tudo). */
+            motivoVazio: ("sem_editais" | "todos_descartados" | "filtros") | null;
         };
         EditalDetalhe: components["schemas"]["FeedItem"] & {
             descricao?: string;
-        };
-        Etapa: {
-            titulo: string;
-            concluida: boolean;
-        };
-        Acompanhamento: {
-            editalId: string;
-            edital: components["schemas"]["EditalResumo"];
-            etapas: components["schemas"]["Etapa"][];
-            /** Format: date-time */
-            atualizadoEm: string;
+            /**
+             * Format: uri
+             * @description Link direto para baixar o documento original no portal do governo (US12).
+             */
+            linkPncp?: string;
         };
         /**
-         * @description Lista inicial de tipos (pode crescer).
+         * @description Calculado no servidor a partir de `validade`, em dias de calendário no horário de Brasília: menos de 0 é `vencida`; de 0 a 15 é `urgente`; de 16 a 30 é `atencao`; 31 ou mais é `em_dia` (sem alerta). Muda na virada do dia em Brasília.
          * @enum {string}
          */
-        CertidaoTipo: "federal" | "fgts" | "trabalhista" | "estadual" | "municipal" | "outra";
-        /**
-         * @description Calculado pelo backend a partir de `dataValidade`. A janela de "vence_em_breve"
-         *     é um parâmetro a definir (proposta: 30 dias).
-         * @enum {string}
-         */
-        CertidaoStatus: "valida" | "vence_em_breve" | "vencida";
-        CertidaoEntrada: {
-            tipo: components["schemas"]["CertidaoTipo"];
-            descricao?: string;
-            /** Format: date */
-            dataValidade: string;
-        };
-        CertidaoAtualizacao: {
-            tipo?: components["schemas"]["CertidaoTipo"];
-            descricao?: string;
-            /** Format: date */
-            dataValidade?: string;
-        };
-        Certidao: components["schemas"]["CertidaoEntrada"] & {
+        CertidaoStatus: "vencida" | "urgente" | "atencao" | "em_dia";
+        Certidao: {
             id: string;
+            nome: string;
+            /** Format: date */
+            validade: string;
+            /** @description Dias de calendário até a validade, no horário de Brasília (negativo se já venceu). */
+            diasRestantes: number;
             status: components["schemas"]["CertidaoStatus"];
-        };
-        /**
-         * @description prazo_edital: aviso 48 h antes do prazo de um edital acompanhado.
-         *     certidao_vencendo: certidão perto de vencer.
-         *     nova_oportunidade: edital de alta aderência recém-ingerido.
-         * @enum {string}
-         */
-        AlertaTipo: "prazo_edital" | "certidao_vencendo" | "nova_oportunidade";
-        Alerta: {
-            id: string;
-            tipo: components["schemas"]["AlertaTipo"];
-            titulo: string;
-            mensagem?: string;
-            editalId?: string | null;
-            certidaoId?: string | null;
-            /** Format: date-time */
-            criadoEm: string;
-            lido: boolean;
         };
     };
     responses: {
@@ -380,8 +254,17 @@ export interface components {
                 "application/json": components["schemas"]["Erro"];
             };
         };
-        /** @description Recurso inexistente (ou de outra empresa). */
+        /** @description Recurso inexistente. */
         NaoEncontrado: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Erro"];
+            };
+        };
+        /** @description Acesso recusado. `codigo` EMPRESA_NAO_CONFIGURADA: token sem `empresaId` ou `role` (configure o perfil em PUT /v1/perfil e renove o ID token). `codigo` ACESSO_NEGADO: o papel não permite a ação, o recurso é de outra empresa ou a query traz outra empresa. */
+        SemEmpresa: {
             headers: {
                 [name: string]: unknown;
             };
@@ -393,7 +276,7 @@ export interface components {
     parameters: {
         Pagina: number;
         Tamanho: number;
-        /** @description Número de controle do PNCP. */
+        /** @description Número de controle do PNCP. Pode conter `/` (por exemplo `00394460000141-1-000123/2026`), então o cliente envia o valor codificado (`encodeURIComponent`) e o backend decodifica. */
         EditalId: string;
         CertidaoId: string;
     };
@@ -466,6 +349,15 @@ export interface operations {
                     "application/json": components["schemas"]["Perfil"];
                 };
             };
+            /** @description Perfil criado no primeiro salvamento (empresa criada e claims gravados). Renove o ID token. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Perfil"];
+                };
+            };
             400: components["responses"]["Validacao"];
             401: components["responses"]["NaoAutenticado"];
         };
@@ -473,21 +365,25 @@ export interface operations {
     listarFeed: {
         parameters: {
             query?: {
-                /** @description Termo-chave temporário (soma-se aos termos do perfil). */
-                termo?: string;
-                /** @description Restringe a estas UFs (repetir o parâmetro para várias). */
+                /** @description Palavra-chave. Mesmo normalizador do score: sem diferenciar maiúsculas, acentos e plural simples. */
+                q?: string;
+                /** @description Restringe a estas UFs (repetir o parâmetro ou separar por vírgula). */
                 uf?: components["schemas"]["Uf"][];
-                valorMinimo?: number;
-                valorMaximo?: number;
+                municipio?: string;
+                modalidade?: components["schemas"]["Modalidade"];
+                /** @description Dia no horário de Brasília (America/Sao_Paulo), inclusivo. */
                 publicadoDe?: string;
+                /** @description Dia no horário de Brasília (America/Sao_Paulo), inclusivo. */
                 publicadoAte?: string;
-                /** @description Data limite de envio de propostas, a partir de. */
-                limiteDe?: string;
-                /** @description Data limite de envio de propostas, até. */
-                limiteAte?: string;
-                faixa?: components["schemas"]["Faixa"];
-                pagina?: components["parameters"]["Pagina"];
-                tamanho?: components["parameters"]["Tamanho"];
+                /** @description Prazo para envio de propostas, a partir de. Dia no horário de Brasília (America/Sao_Paulo), inclusivo. */
+                prazoDe?: string;
+                /** @description Prazo para envio de propostas, até. Dia no horário de Brasília (America/Sao_Paulo), inclusivo. */
+                prazoAte?: string;
+                /** @description Edital sem valor informado não satisfaz um filtro de valor ativo. */
+                valorMin?: number;
+                valorMax?: number;
+                page?: components["parameters"]["Pagina"];
+                pageSize?: components["parameters"]["Tamanho"];
             };
             header?: never;
             path?: never;
@@ -506,6 +402,7 @@ export interface operations {
             };
             400: components["responses"]["Validacao"];
             401: components["responses"]["NaoAutenticado"];
+            403: components["responses"]["SemEmpresa"];
         };
     };
     obterEdital: {
@@ -513,7 +410,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Número de controle do PNCP. */
+                /** @description Número de controle do PNCP. Pode conter `/` (por exemplo `00394460000141-1-000123/2026`), então o cliente envia o valor codificado (`encodeURIComponent`) e o backend decodifica. */
                 editalId: components["parameters"]["EditalId"];
             };
             cookie?: never;
@@ -530,151 +427,8 @@ export interface operations {
                 };
             };
             401: components["responses"]["NaoAutenticado"];
+            403: components["responses"]["SemEmpresa"];
             404: components["responses"]["NaoEncontrado"];
-        };
-    };
-    registrarFeedback: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Número de controle do PNCP. */
-                editalId: components["parameters"]["EditalId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    valor: components["schemas"]["Feedback"];
-                };
-            };
-        };
-        responses: {
-            /** @description Marcação registrada. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        editalId: string;
-                        valor: components["schemas"]["Feedback"];
-                        /** Format: date-time */
-                        atualizadoEm: string;
-                    };
-                };
-            };
-            400: components["responses"]["Validacao"];
-            401: components["responses"]["NaoAutenticado"];
-            404: components["responses"]["NaoEncontrado"];
-        };
-    };
-    removerFeedback: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Número de controle do PNCP. */
-                editalId: components["parameters"]["EditalId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Marcação removida. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["NaoAutenticado"];
-            404: components["responses"]["NaoEncontrado"];
-        };
-    };
-    acompanharEdital: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Número de controle do PNCP. */
-                editalId: components["parameters"]["EditalId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    etapas?: components["schemas"]["Etapa"][];
-                };
-            };
-        };
-        responses: {
-            /** @description Acompanhamento atual. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Acompanhamento"];
-                };
-            };
-            400: components["responses"]["Validacao"];
-            401: components["responses"]["NaoAutenticado"];
-            404: components["responses"]["NaoEncontrado"];
-        };
-    };
-    deixarDeAcompanharEdital: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Número de controle do PNCP. */
-                editalId: components["parameters"]["EditalId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Acompanhamento removido. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["NaoAutenticado"];
-            404: components["responses"]["NaoEncontrado"];
-        };
-    };
-    listarAcompanhamentos: {
-        parameters: {
-            query?: {
-                pagina?: components["parameters"]["Pagina"];
-                tamanho?: components["parameters"]["Tamanho"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Página de acompanhamentos. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        itens: components["schemas"]["Acompanhamento"][];
-                        pagina: number;
-                        tamanho: number;
-                        total: number;
-                    };
-                };
-            };
-            401: components["responses"]["NaoAutenticado"];
         };
     };
     listarCertidoes: {
@@ -698,6 +452,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["NaoAutenticado"];
+            403: components["responses"]["SemEmpresa"];
         };
     };
     criarCertidao: {
@@ -709,7 +464,13 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CertidaoEntrada"];
+                "multipart/form-data": {
+                    /** Format: binary */
+                    arquivo: string;
+                    nome: string;
+                    /** Format: date */
+                    validade: string;
+                };
             };
         };
         responses: {
@@ -726,31 +487,10 @@ export interface operations {
             };
             400: components["responses"]["Validacao"];
             401: components["responses"]["NaoAutenticado"];
+            403: components["responses"]["SemEmpresa"];
         };
     };
-    removerCertidao: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                certidaoId: components["parameters"]["CertidaoId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Certidão removida. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["NaoAutenticado"];
-            404: components["responses"]["NaoEncontrado"];
-        };
-    };
-    atualizarCertidao: {
+    renovarCertidao: {
         parameters: {
             query?: never;
             header?: never;
@@ -761,11 +501,22 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CertidaoAtualizacao"];
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description PDF, JPG ou PNG, até 5 MB (5 MB exatos é aceito). Arquivo vazio ou de outro tipo é recusado.
+                     */
+                    arquivo: string;
+                    /**
+                     * Format: date
+                     * @description Deve ser posterior a hoje (Brasília) e à validade atual.
+                     */
+                    validade: string;
+                };
             };
         };
         responses: {
-            /** @description Certidão atualizada. */
+            /** @description Certidão renovada. O status é recalculado na hora. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -776,69 +527,7 @@ export interface operations {
             };
             400: components["responses"]["Validacao"];
             401: components["responses"]["NaoAutenticado"];
-            404: components["responses"]["NaoEncontrado"];
-        };
-    };
-    listarAlertas: {
-        parameters: {
-            query?: {
-                tipo?: components["schemas"]["AlertaTipo"];
-                lido?: boolean;
-                pagina?: components["parameters"]["Pagina"];
-                tamanho?: components["parameters"]["Tamanho"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Página de alertas. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        itens: components["schemas"]["Alerta"][];
-                        pagina: number;
-                        tamanho: number;
-                        total: number;
-                    };
-                };
-            };
-            400: components["responses"]["Validacao"];
-            401: components["responses"]["NaoAutenticado"];
-        };
-    };
-    atualizarAlerta: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                alertaId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    lido: boolean;
-                };
-            };
-        };
-        responses: {
-            /** @description Alerta atualizado. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Alerta"];
-                };
-            };
-            400: components["responses"]["Validacao"];
-            401: components["responses"]["NaoAutenticado"];
+            403: components["responses"]["SemEmpresa"];
             404: components["responses"]["NaoEncontrado"];
         };
     };

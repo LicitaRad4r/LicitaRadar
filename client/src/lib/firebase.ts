@@ -23,3 +23,9 @@ export async function obterTokenFirebase() {
   await auth.authStateReady()
   return auth.currentUser ? auth.currentUser.getIdToken() : null
 }
+
+/** Força um ID token novo (ex.: depois que o back grava os claims `empresaId` e `role`). */
+export async function renovarTokenFirebase() {
+  await auth.authStateReady()
+  await auth.currentUser?.getIdToken(true)
+}

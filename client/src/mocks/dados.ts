@@ -1,142 +1,134 @@
-import type { Acompanhamento, Alerta, Certidao, EditalDetalhe, Feedback, Perfil } from '@/api/tipos'
+import type { Certidao, EditalDetalhe, Faixa, Modalidade, Perfil, Uf } from '@/api/tipos'
+import { diasEntre, hojeEmBrasilia, somarDias } from '@/lib/datas'
 
 /**
- * "Banco" em memória do mock. As ações (salvar perfil, cadastrar certidão...) alteram estes dados
- * enquanto a página estiver aberta; recarregar volta ao estado inicial.
+ * "Banco" em memória do mock, no formato do contrato v0.3. As ações (salvar perfil, renovar certidão)
+ * alteram estes dados enquanto a página estiver aberta; recarregar volta ao estado inicial.
  */
 
-const DIA = 24 * 60 * 60 * 1000
-const hoje = () => new Date()
-const emDias = (dias: number) => new Date(hoje().getTime() + dias * DIA)
-const dataIso = (d: Date) => d.toISOString().slice(0, 10)
+const HORA_MS = 60 * 60 * 1000
+/** Instante `dias` à frente (ou atrás), sempre às 18h de Brasília para não cair na virada do dia. */
+function instante(dias: number) {
+  return new Date(`${somarDias(hojeEmBrasilia(), dias)}T18:00:00-03:00`).toISOString()
+}
 
-type EditalBase = Omit<EditalDetalhe, 'diasParaEncerrar' | 'feedback' | 'acompanhando' | 'dataLimiteProposta'> & {
+export function faixaDoScore(score: number): Faixa {
+  if (score >= 80) return 'alta'
+  if (score >= 50) return 'media'
+  return 'baixa'
+}
+
+type EditalBase = {
+  id: string
+  titulo: string
+  orgao: string
+  uf: Uf
+  municipio: string | null
+  modalidade: Modalidade
+  valorEstimado: number | null
   diasAtePrazo: number
+  diasDesdePublicacao: number
+  score: number
+  descricao?: string
 }
 
 const editaisBase: EditalBase[] = [
   {
-    id: '00394460000141-1-000123-2026',
+    id: '00394460000141-1-000123/2026',
+    titulo: 'Aquisição de notebooks e monitores para unidades de atenção básica',
     orgao: 'Ministério da Saúde',
-    objeto: 'Aquisição de notebooks e monitores para unidades de atenção básica',
-    modalidade: 'pregao_eletronico',
     uf: 'DF',
     municipio: 'Brasília',
+    modalidade: 'pregao_eletronico',
     valorEstimado: 1_250_000,
-    dataPublicacao: emDias(-2).toISOString(),
     diasAtePrazo: 9,
-    linkPncp: 'https://pncp.gov.br/app/editais',
+    diasDesdePublicacao: 2,
     score: 94,
-    faixa: 'alta',
-    criteriosAtendidos: ['termo', 'uf', 'valor', 'segmento', 'modalidade'],
     descricao: 'Registro de preços para eventual aquisição de equipamentos de informática.',
   },
   {
-    id: '26989350000116-1-000045-2026',
+    id: '26989350000116-1-000045/2026',
+    titulo: 'Contratação de serviço de suporte técnico em TI (service desk)',
     orgao: 'Universidade de Brasília',
-    objeto: 'Contratação de serviço de suporte técnico em TI (service desk)',
-    modalidade: 'pregao_eletronico',
     uf: 'DF',
     municipio: 'Brasília',
+    modalidade: 'pregao_eletronico',
     valorEstimado: 820_000,
-    dataPublicacao: emDias(-1).toISOString(),
     diasAtePrazo: 12,
-    linkPncp: 'https://pncp.gov.br/app/editais',
+    diasDesdePublicacao: 1,
     score: 88,
-    faixa: 'alta',
-    criteriosAtendidos: ['termo', 'uf', 'segmento'],
-    descricao: 'Serviço continuado de atendimento de primeiro e segundo nível.',
   },
   {
-    id: '01409580000138-1-000310-2026',
+    id: '01409580000138-1-000310/2026',
+    titulo: 'Aquisição de licenças de software de gestão escolar',
     orgao: 'Secretaria de Educação de Goiás',
-    objeto: 'Aquisição de licenças de software de gestão escolar',
-    modalidade: 'concorrencia',
     uf: 'GO',
     municipio: 'Goiânia',
+    modalidade: 'concorrencia',
     valorEstimado: 2_400_000,
-    dataPublicacao: emDias(-4).toISOString(),
     diasAtePrazo: 20,
-    linkPncp: 'https://pncp.gov.br/app/editais',
+    diasDesdePublicacao: 4,
     score: 81,
-    faixa: 'alta',
-    criteriosAtendidos: ['termo', 'segmento', 'prazo'],
-    descricao: 'Licenciamento e implantação de sistema de gestão para 300 escolas.',
   },
   {
-    id: '00489828000155-1-000077-2026',
+    id: '00489828000155-1-000077/2026',
+    titulo: 'Fornecimento de computadores para laboratórios de informática',
     orgao: 'Prefeitura de Anápolis',
-    objeto: 'Fornecimento de computadores para laboratórios de informática',
-    modalidade: 'pregao_eletronico',
     uf: 'GO',
     municipio: 'Anápolis',
+    modalidade: 'pregao_eletronico',
     valorEstimado: 390_000,
-    dataPublicacao: emDias(-3).toISOString(),
     diasAtePrazo: 2,
-    linkPncp: 'https://pncp.gov.br/app/editais',
-    score: 76,
-    faixa: 'alta',
-    criteriosAtendidos: ['termo', 'valor'],
+    diasDesdePublicacao: 3,
+    score: 80,
   },
   {
-    id: '00360305000104-1-000512-2026',
+    id: '00360305000104-1-000512/2026',
+    titulo: 'Manutenção preventiva e corretiva de impressoras',
     orgao: 'Caixa Econômica Federal',
-    objeto: 'Manutenção preventiva e corretiva de impressoras',
-    modalidade: 'pregao_eletronico',
     uf: 'DF',
     municipio: 'Brasília',
+    modalidade: 'pregao_eletronico',
     valorEstimado: 180_000,
-    dataPublicacao: emDias(-6).toISOString(),
     diasAtePrazo: 5,
-    linkPncp: 'https://pncp.gov.br/app/editais',
+    diasDesdePublicacao: 6,
     score: 63,
-    faixa: 'media',
-    criteriosAtendidos: ['uf', 'segmento'],
   },
   {
-    id: '08241739000105-1-000098-2026',
+    id: '08241739000105-1-000098/2026',
+    titulo: 'Aquisição de nobreaks e estabilizadores',
     orgao: 'Tribunal Regional Eleitoral de Minas Gerais',
-    objeto: 'Aquisição de nobreaks e estabilizadores',
-    modalidade: 'dispensa',
     uf: 'MG',
     municipio: 'Belo Horizonte',
+    modalidade: 'dispensa',
     valorEstimado: 58_000,
-    dataPublicacao: emDias(-1).toISOString(),
     diasAtePrazo: 4,
-    linkPncp: 'https://pncp.gov.br/app/editais',
+    diasDesdePublicacao: 1,
     score: 55,
-    faixa: 'media',
-    criteriosAtendidos: ['valor', 'modalidade'],
   },
   {
-    id: '46395000000139-1-000204-2026',
+    id: '46395000000139-1-000204/2026',
+    titulo: 'Serviço de digitalização de documentos do arquivo municipal',
     orgao: 'Prefeitura de São Paulo',
-    objeto: 'Serviço de digitalização de documentos do arquivo municipal',
-    modalidade: 'concorrencia',
     uf: 'SP',
     municipio: 'São Paulo',
+    modalidade: 'concorrencia',
     valorEstimado: 3_100_000,
-    dataPublicacao: emDias(-8).toISOString(),
     diasAtePrazo: 15,
-    linkPncp: 'https://pncp.gov.br/app/editais',
+    diasDesdePublicacao: 8,
     score: 47,
-    faixa: 'media',
-    criteriosAtendidos: ['segmento'],
   },
   {
-    id: '00038174000143-1-000031-2026',
+    id: '00038174000143-1-000031/2026',
+    titulo: 'Locação de tablets para registro eletrônico de prontuário',
     orgao: 'Hospital Universitário de Brasília',
-    objeto: 'Locação de tablets para registro eletrônico de prontuário',
-    modalidade: 'pregao_eletronico',
     uf: 'DF',
     municipio: 'Brasília',
+    modalidade: 'pregao_eletronico',
     valorEstimado: null,
-    dataPublicacao: emDias(-5).toISOString(),
     diasAtePrazo: 7,
-    linkPncp: 'https://pncp.gov.br/app/editais',
+    diasDesdePublicacao: 5,
     score: 42,
-    faixa: 'media',
-    criteriosAtendidos: ['uf'],
   },
 ]
 
@@ -152,7 +144,7 @@ const orgaosExtras = [
   ['Prefeitura de Luziânia', 'GO', 'Luziânia'],
 ] as const
 
-const objetosExtras = [
+const titulosExtras = [
   'Aquisição de switches e roteadores para a rede corporativa',
   'Contratação de solução de backup em nuvem',
   'Fornecimento de licenças de antivírus corporativo',
@@ -171,30 +163,26 @@ const objetosExtras = [
   'Aquisição de nobreaks para o data center',
 ] as const
 
-const criteriosPossiveis = ['termo', 'uf', 'valor', 'prazo', 'segmento', 'modalidade'] as const
-const modalidades = ['pregao_eletronico', 'concorrencia', 'dispensa'] as const
+const modalidades: Modalidade[] = ['pregao_eletronico', 'concorrencia', 'dispensa']
 
-for (let i = 0; i < objetosExtras.length; i++) {
+titulosExtras.forEach((titulo, i) => {
   const [orgao, uf, municipio] = orgaosExtras[i % orgaosExtras.length]
-  const score = 72 - i * 3
   editaisBase.push({
-    id: `${String(10_000_000_000_000 + i * 7_919_311).padStart(14, '0')}-1-${String(400 + i).padStart(6, '0')}-2026`,
+    id: `${String(10_000_000_000_000 + i * 7_919_311).padStart(14, '0')}-1-${String(400 + i).padStart(6, '0')}/2026`,
+    titulo,
     orgao,
-    objeto: objetosExtras[i],
-    modalidade: modalidades[i % modalidades.length],
     uf,
     municipio,
+    modalidade: modalidades[i % modalidades.length],
     valorEstimado: i % 5 === 4 ? null : 40_000 + ((i * 137_000) % 1_900_000),
-    dataPublicacao: emDias(-(i % 9) - 1).toISOString(),
     diasAtePrazo: 3 + ((i * 5) % 25),
-    linkPncp: 'https://pncp.gov.br/app/editais',
-    score,
-    faixa: score >= 70 ? 'alta' : 'media',
-    criteriosAtendidos: criteriosPossiveis.slice(0, Math.max(1, 4 - Math.floor(i / 4))),
+    diasDesdePublicacao: (i % 9) + 1,
+    score: 78 - i * 4,
   })
-}
+})
 
 const perfilInicial: Perfil = {
+  empresaId: 'empresa-demo',
   ufs: ['DF', 'GO'],
   termosChave: ['notebook', 'computador', 'suporte técnico', 'software'],
   segmentos: ['ti'],
@@ -204,62 +192,25 @@ const perfilInicial: Perfil = {
   prazoMinimoDiasUteis: 3,
 }
 
-function statusPorValidade(dataValidade: string): Certidao['status'] {
-  const dias = (new Date(`${dataValidade}T23:59:59`).getTime() - hoje().getTime()) / DIA
-  if (dias < 0) return 'vencida'
-  if (dias <= 30) return 'vence_em_breve'
-  return 'valida'
+/** Mesma regra do contrato: dias de calendário em Brasília até a validade. */
+export function calcularCertidao(dados: { id: string; nome: string; validade: string }): Certidao {
+  const diasRestantes = diasEntre(hojeEmBrasilia(), dados.validade)
+  const status: Certidao['status'] =
+    diasRestantes < 0 ? 'vencida' : diasRestantes <= 15 ? 'urgente' : diasRestantes <= 30 ? 'atencao' : 'em_dia'
+  return { ...dados, diasRestantes, status }
 }
 
 function criarEstadoInicial() {
-  const certidoes: Certidao[] = [
-    { id: 'cert-1', tipo: 'federal', descricao: 'CND Receita Federal e PGFN', dataValidade: dataIso(emDias(120)) },
-    { id: 'cert-2', tipo: 'fgts', descricao: 'CRF do FGTS', dataValidade: dataIso(emDias(12)) },
-    { id: 'cert-3', tipo: 'trabalhista', descricao: 'CNDT', dataValidade: dataIso(emDias(-3)) },
-    { id: 'cert-4', tipo: 'estadual', descricao: 'Certidão negativa do DF', dataValidade: dataIso(emDias(60)) },
-  ].map((c) => ({ ...c, tipo: c.tipo as Certidao['tipo'], status: statusPorValidade(c.dataValidade) }))
+  const hoje = hojeEmBrasilia()
+  const certidoes = [
+    { id: 'cert-trabalhista', nome: 'CNDT (débitos trabalhistas)', validade: somarDias(hoje, -3) },
+    { id: 'cert-fgts', nome: 'CRF do FGTS', validade: somarDias(hoje, 6) },
+    { id: 'cert-municipal', nome: 'Certidão negativa municipal', validade: somarDias(hoje, 22) },
+    { id: 'cert-federal', nome: 'CND Receita Federal e PGFN', validade: somarDias(hoje, 120) },
+    { id: 'cert-estadual', nome: 'Certidão negativa do DF', validade: somarDias(hoje, 60) },
+  ].map(calcularCertidao)
 
-  const alertas: Alerta[] = [
-    {
-      id: 'alerta-1',
-      tipo: 'nova_oportunidade',
-      titulo: 'Novo edital de alta aderência',
-      mensagem: 'Ministério da Saúde: aquisição de notebooks e monitores.',
-      editalId: editaisBase[0].id,
-      certidaoId: null,
-      criadoEm: emDias(-0.1).toISOString(),
-      lido: false,
-    },
-    {
-      id: 'alerta-2',
-      tipo: 'certidao_vencendo',
-      titulo: 'CRF do FGTS vence em 12 dias',
-      mensagem: 'Renove antes para não ser inabilitado.',
-      editalId: null,
-      certidaoId: 'cert-2',
-      criadoEm: emDias(-1).toISOString(),
-      lido: false,
-    },
-    {
-      id: 'alerta-3',
-      tipo: 'prazo_edital',
-      titulo: 'Prazo de proposta em 48 horas',
-      mensagem: 'Prefeitura de Anápolis: computadores para laboratórios.',
-      editalId: editaisBase[3].id,
-      certidaoId: null,
-      criadoEm: emDias(-2).toISOString(),
-      lido: true,
-    },
-  ]
-
-  return {
-    perfil: structuredClone(perfilInicial),
-    certidoes,
-    alertas,
-    feedbacks: new Map<string, Feedback>(),
-    acompanhamentos: new Map<string, Pick<Acompanhamento, 'etapas' | 'atualizadoEm'>>(),
-    proximoId: 100,
-  }
+  return { perfil: structuredClone(perfilInicial), certidoes }
 }
 
 export let banco = criarEstadoInicial()
@@ -269,21 +220,12 @@ export function reiniciarBanco() {
   banco = criarEstadoInicial()
 }
 
-export const ETAPAS_PADRAO = [
-  'Ler o edital e anexos',
-  'Separar documentos de habilitação',
-  'Montar a proposta de preço',
-  'Enviar a proposta no portal',
-]
-
 export function editais(): EditalDetalhe[] {
-  return editaisBase.map(({ diasAtePrazo, ...edital }) => ({
+  return editaisBase.map(({ diasAtePrazo, diasDesdePublicacao, ...edital }) => ({
     ...edital,
-    dataLimiteProposta: emDias(diasAtePrazo).toISOString(),
-    diasParaEncerrar: diasAtePrazo,
-    feedback: banco.feedbacks.get(edital.id) ?? null,
-    acompanhando: banco.acompanhamentos.has(edital.id),
+    faixa: faixaDoScore(edital.score),
+    prazo: instante(diasAtePrazo),
+    dataPublicacao: new Date(Date.parse(instante(-diasDesdePublicacao)) - 6 * HORA_MS).toISOString(),
+    linkPncp: 'https://pncp.gov.br/app/editais',
   }))
 }
-
-export { statusPorValidade }

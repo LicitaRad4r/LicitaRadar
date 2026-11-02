@@ -1,8 +1,6 @@
-import { Bell } from 'lucide-react'
 import { Link, Outlet } from 'react-router'
 import { API_MOCK } from '@/api/config'
 import { useSaudeApi } from '@/api/saude'
-import { useContagemAlertasNaoLidos } from '@/features/alertas/api'
 import { cn } from '@/lib/utils'
 
 function StatusApi() {
@@ -28,21 +26,6 @@ function StatusApi() {
   )
 }
 
-function SinoDeAlertas() {
-  const { data: naoLidos = 0 } = useContagemAlertasNaoLidos()
-  const rotulo = naoLidos > 0 ? `Alertas, ${naoLidos} não lidos` : 'Alertas'
-  return (
-    <span className="relative inline-flex size-9 items-center justify-center rounded-lg text-white/90" aria-label={rotulo} role="img">
-      <Bell aria-hidden className="size-5" />
-      {naoLidos > 0 && (
-        <span className="absolute -top-0.5 -right-0.5 min-w-5 rounded-full bg-radar px-1 text-center text-xs leading-5 font-semibold text-white tabular-nums">
-          {naoLidos}
-        </span>
-      )}
-    </span>
-  )
-}
-
 export function Layout() {
   return (
     <div className="min-h-svh bg-background">
@@ -53,7 +36,6 @@ export function Layout() {
           </Link>
           <div className="flex items-center gap-4">
             <StatusApi />
-            <SinoDeAlertas />
           </div>
         </div>
       </header>

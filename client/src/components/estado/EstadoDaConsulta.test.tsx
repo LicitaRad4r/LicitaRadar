@@ -16,7 +16,7 @@ function ListaDeCertidoes() {
       {(certidoes) => (
         <ul>
           {certidoes.map((c) => (
-            <li key={c.id}>{c.descricao}</li>
+            <li key={c.id}>{c.nome}</li>
           ))}
         </ul>
       )}
@@ -47,7 +47,7 @@ describe('EstadoDaConsulta', () => {
       http.get(`${API_URL}/v1/certidoes`, () =>
         falhar
           ? HttpResponse.json({ codigo: 'ERRO_INTERNO', mensagem: 'falhou' }, { status: 500 })
-          : HttpResponse.json({ itens: [{ id: 'c1', tipo: 'fgts', descricao: 'Recuperada', dataValidade: '2030-01-01', status: 'valida' }] }),
+          : HttpResponse.json({ itens: [{ id: 'c1', nome: 'Recuperada', validade: '2030-01-01', diasRestantes: 1000, status: 'em_dia' }] }),
       ),
     )
 

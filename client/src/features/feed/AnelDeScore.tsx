@@ -7,7 +7,7 @@ const CIRCUNFERENCIA = 2 * Math.PI * RAIO
 
 /**
  * Nota de aderência (0 a 100) desenhada como um anel que se completa.
- * Violeta para alta aderência, cinza para média.
+ * Violeta cheio para alta aderência, violeta claro para média e cinza para baixa.
  */
 export function AnelDeScore({ score, faixa }: { score: number; faixa: Faixa }) {
   const preenchido = (Math.min(100, Math.max(0, score)) / 100) * CIRCUNFERENCIA
@@ -27,13 +27,15 @@ export function AnelDeScore({ score, faixa }: { score: number; faixa: Faixa }) {
           strokeWidth="4"
           strokeLinecap="round"
           strokeDasharray={`${preenchido} ${CIRCUNFERENCIA}`}
-          className={faixa === 'alta' ? 'stroke-radar' : 'stroke-muted-foreground/60'}
+          className={
+            faixa === 'alta' ? 'stroke-radar' : faixa === 'media' ? 'stroke-radar/45' : 'stroke-muted-foreground/40'
+          }
         />
       </svg>
       <span
         className={cn(
           'text-base font-semibold tabular-nums',
-          faixa === 'alta' ? 'text-radar' : 'text-muted-foreground',
+          faixa === 'baixa' ? 'text-muted-foreground' : 'text-radar',
         )}
       >
         {score}

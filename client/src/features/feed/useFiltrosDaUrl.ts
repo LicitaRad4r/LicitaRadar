@@ -1,70 +1,42 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router'
-import type { Faixa, FiltrosFeed, Uf } from '@/api/tipos'
-
-export const TAMANHO_PAGINA = 10
-
-export type FiltrosDaTela = {
-  termo: string
-  uf: Uf | ''
-  faixa: Faixa | ''
-  pagina: number
-}
+import { escreverFiltros, etiquetas, lerFiltros, paraConsulta, type Filtros } from './filtros'
 
 /**
- * Os filtros do feed ficam na URL (?termo=&uf=&faixa=&pagina=).
- * Assim dá para recarregar, voltar e compartilhar o link sem perder a busca.
+ * Os filtros do feed moram na URL. Assim dá para recarregar, voltar no navegador
+ * e mandar o link para alguém sem perder a busca (issue #16).
  */
 export function useFiltrosDaUrl() {
   const [params, setParams] = useSearchParams()
+  const filtros = useMemo(() => lerFiltros(params), [params])
 
-  const filtros: FiltrosDaTela = useMemo(
-    () => ({
-      termo: params.get('termo') ?? '',
-      uf: (params.get('uf') ?? '') as Uf | '',
-      faixa: (['alta', 'media'].includes(params.get('faixa') ?? '') ? params.get('faixa') : '') as Faixa | '',
-      pagina: Math.max(1, Number(params.get('pagina')) || 1),
-    }),
-    [params],
-  )
+  // O setParams do React Router lê a URL da última renderização. Se duas mudanças chegarem antes
+  // de a tela renderizar de novo (ex.: escolher estado e modalidade em sequência), a segunda apagaria
+  // a primeira. Por isso a última URL escrita fica guardada aqui até a renderização alcançar.
+  // Quando a tela renderiza com a URL nova, `base` deixa de ser igual a `params` e o guardado é ignorado.
+  const pendente = useRef<{ base: URLSearchParams; proxima: URLSearchParams } | null>(null)
 
   const alterar = useCallback(
-    (mudancas: Partial<FiltrosDaTela>) => {
-      setParams(
-        (atuais) => {
-          const proximos = new URLSearchParams(atuais)
-          for (const [chave, valor] of Object.entries(mudancas)) {
-            if (valor === '' || valor === undefined || (chave === 'pagina' && valor === 1)) {
-              proximos.delete(chave)
-            } else {
-              proximos.set(chave, String(valor))
-            }
-          }
-          // Mudou o filtro, a busca recomeça da primeira página.
-          if (!('pagina' in mudancas)) proximos.delete('pagina')
-          return proximos
-        },
-        { replace: !('pagina' in mudancas) },
-      )
+    (mudancas: Partial<Filtros>) => {
+      const atuais = pendente.current?.base === params ? pendente.current.proxima : params
+      const proximos = { ...lerFiltros(atuais), ...mudancas }
+      // Mudou um filtro, a busca recomeça da primeira página.
+      if (!('page' in mudancas)) proximos.page = 1
+      const proxima = escreverFiltros(proximos)
+      pendente.current = { base: params, proxima }
+      // Trocar de página vira um passo no histórico (o "voltar" funciona); mexer em filtro não.
+      setParams(proxima, { replace: !('page' in mudancas) })
     },
-    [setParams],
+    [params, setParams],
   )
 
-  const limpar = useCallback(() => setParams({}), [setParams])
+  const limpar = useCallback(() => {
+    pendente.current = { base: params, proxima: new URLSearchParams() }
+    setParams(new URLSearchParams())
+  }, [params, setParams])
 
-  const temFiltro = filtros.termo !== '' || filtros.uf !== '' || filtros.faixa !== ''
+  const ativas = useMemo(() => etiquetas(filtros), [filtros])
+  const consulta = useMemo(() => paraConsulta(filtros), [filtros])
 
-  /** Os filtros no formato da API. */
-  const consulta: FiltrosFeed = useMemo(
-    () => ({
-      ...(filtros.termo.length >= 2 && { termo: filtros.termo }),
-      ...(filtros.uf && { uf: [filtros.uf] }),
-      ...(filtros.faixa && { faixa: filtros.faixa }),
-      pagina: filtros.pagina,
-      tamanho: TAMANHO_PAGINA,
-    }),
-    [filtros],
-  )
-
-  return { filtros, consulta, alterar, limpar, temFiltro }
+  return { filtros, consulta, etiquetas: ativas, temFiltro: ativas.length > 0, alterar, limpar }
 }

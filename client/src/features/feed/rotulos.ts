@@ -1,26 +1,14 @@
-import type { Criterio, Faixa } from '@/api/tipos'
+import type { Faixa, Modalidade } from '@/api/tipos'
 
+/** Faixas do contrato v0.3: alta de 80 a 100, média de 50 a 79, baixa de 0 a 49. */
 export const ROTULO_FAIXA: Record<Faixa, string> = {
   alta: 'Alta aderência',
   media: 'Média aderência',
+  baixa: 'Baixa aderência',
 }
 
-export const ROTULO_CRITERIO: Record<Criterio, string> = {
-  termo: 'Termo-chave',
-  uf: 'Estado',
-  valor: 'Faixa de valor',
-  prazo: 'Prazo',
-  segmento: 'Segmento',
-  modalidade: 'Modalidade',
-}
-
-const ROTULO_MODALIDADE: Record<string, string> = {
+export const ROTULO_MODALIDADE: Record<Modalidade, string> = {
   pregao_eletronico: 'Pregão eletrônico',
   concorrencia: 'Concorrência',
   dispensa: 'Dispensa',
-}
-
-export function rotuloModalidade(modalidade?: string) {
-  if (!modalidade) return undefined
-  return ROTULO_MODALIDADE[modalidade] ?? modalidade
 }

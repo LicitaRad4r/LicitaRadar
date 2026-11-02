@@ -1,9 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { chaves } from '@/api/chaves'
 import { api, desembrulhar } from '@/api/client'
-import type { CertidaoAtualizacao, CertidaoEntrada } from '@/api/tipos'
+import type { Certidao, CertidaoStatus } from '@/api/tipos'
 
-/** Jornada 4. GET /v1/certidoes. O `status` (valida, vence_em_breve, vencida) vem calculado do back. */
+type ListaCertidoes = { itens: Certidao[] }
+
+/**
+ * GET /v1/certidoes. Só para o decisor: o analista recebe 403 ACESSO_NEGADO.
+ * Vem da mais urgente para a menos urgente, com `diasRestantes` e `status` calculados no back.
+ */
 export function useCertidoes() {
   return useQuery({
     queryKey: chaves.certidoes,
@@ -12,47 +17,44 @@ export function useCertidoes() {
   })
 }
 
-/** Mudar certidões pode gerar ou resolver alertas de vencimento. */
-function useAoMudarCertidoes() {
+/** Mesma ordem do back: menos dias restantes primeiro, empate pelo nome. */
+export function ordenarPorUrgencia(certidoes: Certidao[]) {
+  return [...certidoes].sort((a, b) => a.diasRestantes - b.diasRestantes || a.nome.localeCompare(b.nome, 'pt-BR'))
+}
+
+/** Certidões que pedem ação: vencidas, urgentes ou em atenção. */
+export const EM_ALERTA: CertidaoStatus[] = ['vencida', 'urgente', 'atencao']
+
+export type DadosRenovacao = { certidaoId: string; arquivo: File; validade: string }
+
+/**
+ * PUT /v1/certidoes/{id}/renovacao, com o arquivo novo e a nova validade (multipart).
+ * Ao gravar, a certidão renovada substitui a antiga na lista na mesma hora, já reordenada,
+ * e a lista é confirmada com o back em seguida.
+ */
+export function useRenovarCertidao() {
   const queryClient = useQueryClient()
-  return () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: chaves.certidoes }),
-      queryClient.invalidateQueries({ queryKey: chaves.alertas.todos }),
-    ])
-}
-
-export function useCriarCertidao() {
-  const aoMudar = useAoMudarCertidoes()
   return useMutation({
-    mutationFn: (certidao: CertidaoEntrada) =>
-      desembrulhar(api.POST('/v1/certidoes', { body: certidao })),
-    meta: { sucesso: 'Certidão cadastrada.', silenciarErro: true },
-    onSuccess: aoMudar,
-  })
-}
-
-export function useAtualizarCertidao() {
-  const aoMudar = useAoMudarCertidoes()
-  return useMutation({
-    mutationFn: ({ certidaoId, campos }: { certidaoId: string; campos: CertidaoAtualizacao }) =>
+    mutationFn: ({ certidaoId, arquivo, validade }: DadosRenovacao) =>
       desembrulhar(
-        api.PATCH('/v1/certidoes/{certidaoId}', {
+        api.PUT('/v1/certidoes/{certidaoId}/renovacao', {
           params: { path: { certidaoId } },
-          body: campos,
+          // O contrato descreve o arquivo como binário; no navegador ele é um File dentro de um FormData.
+          body: { arquivo: arquivo as unknown as string, validade },
+          bodySerializer: (corpo) => {
+            const dados = new FormData()
+            dados.append('arquivo', corpo.arquivo as unknown as Blob)
+            dados.append('validade', corpo.validade)
+            return dados
+          },
         }),
       ),
-    meta: { sucesso: 'Certidão atualizada.', silenciarErro: true },
-    onSuccess: aoMudar,
-  })
-}
-
-export function useRemoverCertidao() {
-  const aoMudar = useAoMudarCertidoes()
-  return useMutation({
-    mutationFn: (certidaoId: string) =>
-      desembrulhar(api.DELETE('/v1/certidoes/{certidaoId}', { params: { path: { certidaoId } } })),
-    meta: { sucesso: 'Certidão removida.' },
-    onSuccess: aoMudar,
+    meta: { sucesso: 'Certidão renovada.', silenciarErro: true },
+    onSuccess: (renovada) => {
+      queryClient.setQueryData<ListaCertidoes>(chaves.certidoes, (lista) =>
+        lista && { itens: ordenarPorUrgencia(lista.itens.map((c) => (c.id === renovada.id ? renovada : c))) },
+      )
+      return queryClient.invalidateQueries({ queryKey: chaves.certidoes })
+    },
   })
 }

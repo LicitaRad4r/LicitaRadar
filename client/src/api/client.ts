@@ -6,13 +6,23 @@ import type { paths } from './schema'
 type ObterToken = () => Promise<string | null>
 
 let obterToken: ObterToken = async () => null
+let renovarToken: () => Promise<void> = async () => {}
 
 /**
- * Define de onde vem o token enviado em `Authorization: Bearer`.
+ * Define de onde vem o token enviado em `Authorization: Bearer`, e como forçar um token novo.
  * Chamado uma vez no main.tsx com o Firebase Auth; nos testes pode ser trocado.
  */
-export function configurarToken(fn: ObterToken) {
-  obterToken = fn
+export function configurarToken(obter: ObterToken, renovar: () => Promise<void> = async () => {}) {
+  obterToken = obter
+  renovarToken = renovar
+}
+
+/**
+ * Pede um token novo ao Firebase. Necessário depois do primeiro PUT /v1/perfil,
+ * quando o back grava os claims `empresaId` e `role` no usuário.
+ */
+export function renovarTokenAgora() {
+  return renovarToken()
 }
 
 const autenticacao: Middleware = {
