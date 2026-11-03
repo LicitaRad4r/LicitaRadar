@@ -6,6 +6,7 @@ import { somarDias } from '../../src/dominio/tempo.js'
 import type { FeedRepo } from '../../src/feed/repositorio.js'
 import { editaisGolden, scoresGolden } from '../../src/seed/golden.js'
 import { auth } from './ajudantes.js'
+import { armazenamentoMemoria, certidaoRepoMemoria } from './memoria.js'
 
 const agora = new Date('2026-10-15T13:00:00Z')
 const usuarios: Record<string, Usuario> = {
@@ -20,6 +21,8 @@ function criar(editais: Edital[], scores: RegistroScore[]) {
     logger: false,
     agora: () => agora,
     feed,
+    certidoes: certidaoRepoMemoria([]),
+    arquivos: armazenamentoMemoria().armazenamento,
     perfis: { ler: async () => null, salvar: async () => {}, criar: async () => 'x' },
     definirClaims: async () => {},
     verificarToken: async (t) => {

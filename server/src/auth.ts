@@ -20,11 +20,18 @@ declare module 'fastify' {
 
 const TOKEN_EXPIRADO = 'auth/id-token-expired'
 
+const publica = (req: FastifyRequest) => req.url.split('?')[0] === '/health' // única rota pública
+
+/**
+ * Hook único de segurança (CT-SEG-001 a 011). Toda rota passa por aqui, inclusive as inexistentes:
+ * 1. `onRequest`: valida o token ANTES de ler o corpo, então sem token é sempre 401, mesmo com corpo inválido.
+ * 2. `preHandler`: a empresa vem só do token; `orgId`/`empresaId` de outra empresa, na query ou no corpo, é 403.
+ */
 export function registrarAuth(app: FastifyInstance, verificar: VerificarToken) {
   app.decorateRequest('usuario', undefined)
 
-  app.addHook('preHandler', async (req) => {
-    if (req.url.split('?')[0] === '/health') return // única rota pública
+  app.addHook('onRequest', async (req) => {
+    if (publica(req)) return
     const cabecalho = req.headers.authorization ?? ''
     const [tipo, token] = cabecalho.split(' ')
     if (tipo !== 'Bearer' || !token) throw naoAutenticado()
@@ -34,13 +41,17 @@ export function registrarAuth(app: FastifyInstance, verificar: VerificarToken) {
       const codigo = (e as { code?: string } | null)?.code
       throw naoAutenticado(codigo === TOKEN_EXPIRADO ? 'Sessão expirada. Faça login novamente.' : undefined)
     }
-    // A empresa vem só do token: qualquer outra empresa na query é recusada (CT-SEG-009).
-    // Vale para a query e para o corpo: nenhuma rota aceita outra empresa que não a do token.
+  })
+
+  app.addHook('preHandler', async (req) => {
+    if (publica(req)) return
+    const usuario = usuarioDe(req)
     const corpo = typeof req.body === 'object' && req.body !== null ? (req.body as Record<string, unknown>) : {}
     for (const origem of [(req.query ?? {}) as Record<string, unknown>, corpo]) {
       for (const chave of ['orgId', 'empresaId']) {
         const valor = origem[chave]
-        if (valor !== undefined && valor !== req.usuario.empresaId) throw acessoNegado()
+        // `null` é o eco do `empresaId` do GET /perfil de quem ainda não tem empresa: não é outra empresa.
+        if (valor !== undefined && valor !== null && valor !== usuario.empresaId) throw acessoNegado()
       }
     }
   })

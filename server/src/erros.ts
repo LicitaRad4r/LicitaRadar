@@ -34,9 +34,9 @@ export function erroDeZod(e: ZodError): ErroApi {
 
 /** Registra o tratamento de erros no formato `Erro` do contrato OpenAPI. */
 export function registrarErros(app: FastifyInstance) {
-  app.setNotFoundHandler((_req, reply) => {
+  app.setNotFoundHandler((req, reply) => {
     const e = naoEncontrado('Rota não encontrada.')
-    reply.status(e.status).send({ codigo: e.codigo, mensagem: e.message })
+    reply.status(e.status).send({ codigo: e.codigo, mensagem: e.message, requestId: req.id })
   })
 
   app.setErrorHandler((erro: FastifyError | ErroApi | ZodError, req, reply) => {
@@ -44,16 +44,16 @@ export function registrarErros(app: FastifyInstance) {
     if (e instanceof ErroApi) {
       if (e.status === 401 || e.status === 403) {
         // Bloqueios: só requestId, rota e status. Nada do recurso nem do usuário.
-        req.log.warn({ requestId: req.id, route: req.routeOptions.url, status: e.status }, 'acesso bloqueado')
+        req.log.warn({ route: req.routeOptions.url, status: e.status }, 'acesso bloqueado')
       }
-      return reply.status(e.status).send({ codigo: e.codigo, mensagem: e.message, detalhes: e.detalhes })
+      return reply.status(e.status).send({ codigo: e.codigo, mensagem: e.message, requestId: req.id, detalhes: e.detalhes })
     }
     // JSON malformado e afins: o Fastify já marca como 4xx.
     if ('statusCode' in e && e.statusCode && e.statusCode >= 400 && e.statusCode < 500) {
-      return reply.status(400).send({ codigo: 'VALIDACAO', mensagem: 'Requisição inválida.' })
+      return reply.status(400).send({ codigo: 'VALIDACAO', mensagem: 'Requisição inválida.', requestId: req.id })
     }
     // Sem dados pessoais no log: só a mensagem e o id da requisição.
     req.log.error({ msg: e.message }, 'erro inesperado')
-    return reply.status(500).send({ codigo: 'ERRO_INTERNO', mensagem: 'Erro interno.' })
+    return reply.status(500).send({ codigo: 'ERRO_INTERNO', mensagem: 'Erro interno.', requestId: req.id })
   })
 }

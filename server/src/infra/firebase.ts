@@ -22,7 +22,9 @@ export const verificarTokenFirebase: VerificarToken = async (token) => {
   iniciarFirebase()
   const d = await getAuth().verifyIdToken(token)
   const role = d.role === 'decisor' || d.role === 'analista' ? d.role : undefined
-  const empresaId = typeof d.empresaId === 'string' ? d.empresaId : undefined
+  // A documentação (CT-SEG-004) fala em `orgId`; o contrato fala em `empresaId`. Aceita os dois até o grupo decidir.
+  const claimEmpresa = d.empresaId ?? d.orgId
+  const empresaId = typeof claimEmpresa === 'string' ? claimEmpresa : undefined
   return { uid: d.uid, empresaId, role }
 }
 

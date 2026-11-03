@@ -1,3 +1,4 @@
+import type { CertidaoRegistro } from '../certidoes/repositorio.js'
 import type { Edital, RegistroScore } from '../dominio/edital.js'
 import { diaBrasilia, somarDias, somarDiasUteis } from '../dominio/tempo.js'
 import type { PerfilDados } from '../perfil/schema.js'
@@ -56,4 +57,30 @@ export function scoresGolden(agora: Date, editais: Edital[]): RegistroScore[] {
     }
   }
   return registros
+}
+
+/**
+ * Certidões da Empresa A em torno dos limites de status (card #24), relativas a `agora`:
+ * -2 vencida · +3 e +15 urgente · +16 e +30 atenção · +31 em dia. A Empresa B tem uma só (isolamento).
+ */
+export function certidoesGolden(agora: Date): CertidaoRegistro[] {
+  const hoje = diaBrasilia(agora)
+  const arquivo = (id: string) => ({ chave: `certidoes/seed/${id}.pdf`, tipo: 'application/pdf' as const, tamanho: 1024 })
+  const cert = (id: string, empresaId: string, nome: string, dias: number): CertidaoRegistro => ({
+    id,
+    empresaId,
+    nome,
+    validade: somarDias(hoje, dias),
+    arquivo: arquivo(id),
+    anteriores: [],
+  })
+  return [
+    cert('cert-a-vencida', 'emp-a', 'CND Federal', -2),
+    cert('cert-a-mais3', 'emp-a', 'CND Estadual', 3),
+    cert('cert-a-mais15', 'emp-a', 'CND Municipal', 15),
+    cert('cert-a-mais16', 'emp-a', 'CRF do FGTS', 16),
+    cert('cert-a-mais30', 'emp-a', 'CNDT Trabalhista', 30),
+    cert('cert-a-mais31', 'emp-a', 'Balanço Patrimonial', 31),
+    cert('cert-b-mais10', 'emp-b', 'CND Federal', 10),
+  ]
 }
