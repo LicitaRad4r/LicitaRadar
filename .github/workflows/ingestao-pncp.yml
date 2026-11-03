@@ -1,0 +1,52 @@
+# Ingestão do PNCP — substituto do Cloud Scheduler (plano custo zero).
+# LicitaRadar: o workflow chama uma rota protegida da API.
+#
+# Ativação (Semana 5):
+# 1. Criar os secrets: API_BASE_URL, INGEST_JOB_TOKEN
+# 2. Definir a variável de repositório ENABLE_PNCP_INGEST=true
+# 3. Garantir que a API exponha a rota protegida (ex.: POST /jobs/ingestao-pncp)
+#
+# Até lá o schedule não executa (ENABLE_PNCP_INGEST ≠ true).
+# workflow_dispatch permite teste manual depois que secrets e rota existirem.
+
+name: Ingestão PNCP
+
+on:
+  schedule:
+    # 06:00 UTC ≈ 03:00 America/Sao_Paulo
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ingestao-pncp
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    name: chamar API de ingestão
+    runs-on: ubuntu-latest
+    if: ${{ vars.ENABLE_PNCP_INGEST == 'true' }}
+    steps:
+      - name: Validar secrets
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          INGEST_JOB_TOKEN: ${{ secrets.INGEST_JOB_TOKEN }}
+        run: |
+          if [ -z "$API_BASE_URL" ] || [ -z "$INGEST_JOB_TOKEN" ]; then
+            echo "Defina os secrets API_BASE_URL e INGEST_JOB_TOKEN."
+            exit 1
+          fi
+
+      - name: Disparar ingestão
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          INGEST_JOB_TOKEN: ${{ secrets.INGEST_JOB_TOKEN }}
+        run: |
+          set -euo pipefail
+          curl -fsS -X POST "${API_BASE_URL%/}/jobs/ingestao-pncp" \
+            -H "Authorization: Bearer ${INGEST_JOB_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            -o /tmp/ingest-response.json \
+            -w "\nHTTP %{http_code}\n"
+          cat /tmp/ingest-response.json

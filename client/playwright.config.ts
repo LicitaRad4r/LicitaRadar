@@ -21,6 +21,8 @@ export default defineConfig({
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:5173',
+    // Os testes de tela usam o mock da API, para não depender do back.
+    env: { VITE_API_MOCK: 'true' },
     reuseExistingServer: !process.env.CI,
   },
 })

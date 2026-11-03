@@ -1,12 +1,10 @@
-import { Button } from '@/components/ui/button'
+import { createBrowserRouter, RouterProvider } from 'react-router'
+import { rotas } from '@/routes/rotas'
+
+const router = createBrowserRouter(rotas)
 
 function App() {
-  return (
-    <div className="p-8 space-y-4">
-      <h1 className="text-4xl font-bold text-purple-600">LicitaRadar</h1>
-      <Button>Testar botão</Button>
-    </div>
-  )
+  return <RouterProvider router={router} />
 }
 
 export default App

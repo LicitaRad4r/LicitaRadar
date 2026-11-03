@@ -28,8 +28,4 @@
 /.env.example           @GGdornelas @lianeiv
 **/Dockerfile           @GGdornelas @lianeiv
 
-# Documentação de produto (PO)
-/docs/                  @mariajulia-senaa @lianeiv
-
-# Decisões de arquitetura (Tech Lead)
-/docs/adr/              @lianeiv
+# Documentação de produto e ADRs: repositório LicitaRad4r/documentation
