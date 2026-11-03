@@ -106,6 +106,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/certidoes/{certidaoId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consulta uma certidão da empresa
+         * @description Somente `decisor`; `analista` recebe 403 `ACESSO_NEGADO`. Certidão de outra empresa responde 403 `ACESSO_NEGADO` sem revelar nenhum dado dela (CT-SEG-007).
+         */
+        get: operations["obterCertidao"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/certidoes/{certidaoId}/renovacao": {
         parameters: {
             query?: never;
@@ -188,7 +208,7 @@ export interface components {
             titulo: string;
             orgao: string;
             uf: components["schemas"]["Uf"];
-            municipio?: string | null;
+            municipio: string | null;
             modalidade: components["schemas"]["Modalidade"];
             /**
              * Format: date-time
@@ -196,8 +216,8 @@ export interface components {
              */
             prazo: string;
             /** Format: date-time */
-            dataPublicacao?: string;
-            valorEstimado?: number | null;
+            dataPublicacao: string;
+            valorEstimado: number | null;
             score: number;
             faixa: components["schemas"]["Faixa"];
         };
@@ -325,6 +345,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["NaoAutenticado"];
+            403: components["responses"]["SemEmpresa"];
         };
     };
     salvarPerfil: {
@@ -360,6 +381,7 @@ export interface operations {
             };
             400: components["responses"]["Validacao"];
             401: components["responses"]["NaoAutenticado"];
+            403: components["responses"]["SemEmpresa"];
         };
     };
     listarFeed: {
@@ -488,6 +510,31 @@ export interface operations {
             400: components["responses"]["Validacao"];
             401: components["responses"]["NaoAutenticado"];
             403: components["responses"]["SemEmpresa"];
+        };
+    };
+    obterCertidao: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                certidaoId: components["parameters"]["CertidaoId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A certidão, com `diasRestantes` e `status` calculados no servidor. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Certidao"];
+                };
+            };
+            401: components["responses"]["NaoAutenticado"];
+            403: components["responses"]["SemEmpresa"];
+            404: components["responses"]["NaoEncontrado"];
         };
     };
     renovarCertidao: {
