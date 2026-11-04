@@ -1,4 +1,4 @@
-import type { FiltrosFeed } from './tipos'
+import type { FiltrosFeedDTO } from '@/services/dto'
 
 /**
  * Chaves do cache do TanStack Query. Centralizadas para que invalidar
@@ -9,7 +9,7 @@ export const chaves = {
   perfil: ['perfil'] as const,
   feed: {
     todos: ['feed'] as const,
-    lista: (filtros: FiltrosFeed) => ['feed', filtros] as const,
+    lista: (filtros: FiltrosFeedDTO) => ['feed', filtros] as const,
   },
   edital: (id: string) => ['edital', id] as const,
   certidoes: ['certidoes'] as const,

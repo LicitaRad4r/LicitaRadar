@@ -1,4 +1,4 @@
-import type { CodigoErroApi, ErroApi } from './tipos'
+import type { CodigoErroApi, ErroDTO } from './dto'
 
 /** Códigos do contrato, mais o SEM_CONEXAO, que é do front (a requisição nem chegou na API). */
 export type CodigoErro = CodigoErroApi | 'SEM_CONEXAO'
@@ -7,11 +7,11 @@ export type CodigoErro = CodigoErroApi | 'SEM_CONEXAO'
 export class ApiError extends Error {
   readonly status: number
   readonly codigo: CodigoErro
-  readonly detalhes: NonNullable<ErroApi['detalhes']>
+  readonly detalhes: NonNullable<ErroDTO['detalhes']>
   /** Mesmo id que vai para o log do back. Útil para relatar um problema. */
   readonly requestId?: string
 
-  constructor(status: number, corpo: Partial<Omit<ErroApi, 'codigo'>> & { codigo?: CodigoErro } | undefined) {
+  constructor(status: number, corpo: Partial<Omit<ErroDTO, 'codigo'>> & { codigo?: CodigoErro } | undefined) {
     super(corpo?.mensagem ?? `Erro ${status} ao chamar a API`)
     this.name = 'ApiError'
     this.status = status

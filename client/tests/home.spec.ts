@@ -6,7 +6,7 @@ test('abre no feed com os editais mais aderentes primeiro', async ({ page }) => 
   await expect(page.getByRole('link', { name: 'LicitaRadar' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Editais para você' })).toBeVisible()
   await expect(page.getByRole('article')).toHaveCount(10)
-  await expect(page.getByRole('article').first().getByText('Alta aderência')).toBeVisible()
+  await expect(page.getByRole('article').first().getByRole('img', { name: /aderência alta$/ })).toBeVisible()
 })
 
 test('mostra o estado vazio com filtro sem resultado e permite limpar', async ({ page }) => {

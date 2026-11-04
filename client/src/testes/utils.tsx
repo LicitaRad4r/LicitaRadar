@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { render, renderHook } from '@testing-library/react'
-import { criarQueryClient } from '@/api/queryClient'
+import { criarQueryClient } from '@/lib/cache'
 
 /** QueryClient igual ao da aplicação, mas sem repetir chamadas que falham (deixa os testes rápidos). */
 export function criarQueryClientDeTeste() {

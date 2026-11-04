@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { chaves } from '@/api/chaves'
-import { api, desembrulhar } from '@/api/client'
+import { chaves } from '@/lib/chaves'
+import { obterEdital } from '@/services/editais'
 
 /**
  * GET /v1/editais/{id} (fica para depois do Checkpoint 2 no contrato).
@@ -9,8 +9,7 @@ import { api, desembrulhar } from '@/api/client'
 export function useEdital(editalId: string) {
   return useQuery({
     queryKey: chaves.edital(editalId),
-    queryFn: () =>
-      desembrulhar(api.GET('/v1/editais/{editalId}', { params: { path: { editalId } } })),
+    queryFn: () => obterEdital(editalId),
     enabled: editalId.length > 0,
   })
 }

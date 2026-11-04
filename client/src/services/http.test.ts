@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import { servidor } from '@/mocks/servidor'
-import { api, configurarToken, desembrulhar } from './client'
+import { api, configurarToken, desembrulhar } from './http'
 import { API_URL } from './config'
 import { ApiError, errosPorCampo, mensagemAmigavel } from './erros'
 
@@ -24,6 +24,7 @@ describe('cliente da API', () => {
   })
 
   it('não envia Authorization quando ninguém entrou', async () => {
+    configurarToken(async () => null)
     let cabecalho: string | null = 'nao-lido'
     servidor.use(
       http.get(`${API_URL}/v1/certidoes`, ({ request }) => {

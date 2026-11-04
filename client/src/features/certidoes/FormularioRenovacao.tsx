@@ -3,8 +3,8 @@ import { Dialog } from '@base-ui/react/dialog'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
-import { errosPorCampo, mensagemAmigavel } from '@/api/erros'
-import type { Certidao } from '@/api/tipos'
+import { errosPorCampo, mensagemAmigavel } from '@/services/erros'
+import type { CertidaoDTO } from '@/services/dto'
 import { Button } from '@/components/ui/button'
 import { hojeEmBrasilia, somarDias } from '@/lib/datas'
 import { formatarDia } from '@/lib/formatar'
@@ -16,7 +16,7 @@ export const LIMITE_ARQUIVO = 5 * 1024 * 1024
 const TIPOS_ACEITOS = ['application/pdf', 'image/jpeg', 'image/png']
 const EXTENSOES_ACEITAS = /\.(pdf|jpe?g|png)$/i
 
-function esquema(certidao: Certidao) {
+function esquema(certidao: CertidaoDTO) {
   const hoje = hojeEmBrasilia()
   return z.object({
     arquivo: z
@@ -39,9 +39,9 @@ function esquema(certidao: Certidao) {
 type Campos = z.infer<ReturnType<typeof esquema>>
 
 type Props = {
-  certidao: Certidao
+  certidao: CertidaoDTO
   aoFechar: () => void
-  aoRenovar: (renovada: Certidao) => void
+  aoRenovar: (renovada: CertidaoDTO) => void
 }
 
 /** Formulário de renovação (issue #17): arquivo novo e nova validade, enviados no PUT /renovacao. */

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, waitFor } from '@testing-library/react'
-import { configurarToken } from '@/api/client'
+import { configurarToken } from '@/services/http'
 import { banco } from '@/mocks/dados'
 import { renderizarHook } from '@/testes/utils'
 import { useSalvarPerfil } from './api'

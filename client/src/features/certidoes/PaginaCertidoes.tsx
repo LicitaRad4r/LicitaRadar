@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { FileCheck2, ShieldAlert } from 'lucide-react'
-import { ApiError } from '@/api/erros'
-import type { Certidao } from '@/api/tipos'
+import { ApiError } from '@/services/erros'
+import type { CertidaoDTO } from '@/services/dto'
 import { EstadoDaConsulta, Vazio } from '@/components/estado'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -17,10 +17,10 @@ import { COR_STATUS, ROTULO_STATUS, textoValidade } from './rotulos'
  */
 export function PaginaCertidoes() {
   const certidoes = useCertidoes()
-  const [renovando, setRenovando] = useState<Certidao | null>(null)
+  const [renovando, setRenovando] = useState<CertidaoDTO | null>(null)
   const [recemRenovada, setRecemRenovada] = useState<string | null>(null)
 
-  // Só o decisor acessa certidões. O analista recebe 403 e vê uma explicação, sem "tentar de novo".
+  // Só o decisor acessa certidões. O analista recebe 403 e vê uma explicação, sem "tentar novamente".
   if (certidoes.error instanceof ApiError && certidoes.error.codigo === 'ACESSO_NEGADO') {
     return (
       <PaginaComTitulo>
@@ -108,10 +108,10 @@ function Grupo({
   aoRenovar,
 }: {
   titulo: string
-  certidoes: Certidao[]
+  certidoes: CertidaoDTO[]
   vazio?: string
   recemRenovada: string | null
-  aoRenovar: (certidao: Certidao) => void
+  aoRenovar: (certidao: CertidaoDTO) => void
 }) {
   const id = `grupo-${titulo.split(' ')[0].toLowerCase()}`
   return (
@@ -142,7 +142,7 @@ function LinhaCertidao({
   destacar,
   aoRenovar,
 }: {
-  certidao: Certidao
+  certidao: CertidaoDTO
   destacar: boolean
   aoRenovar: () => void
 }) {

@@ -4,16 +4,21 @@ Como as telas do front conversam com a API do LicitaRadar. O contrato é o `serv
 
 ## Como uma tela busca dados
 
-Cada jornada tem um arquivo `api.ts` com hooks prontos. A tela não chama `fetch` nem monta URL.
+Três camadas, cada uma com uma função:
 
-| Assunto | Arquivo | Hooks |
+1. **`services/`**: as chamadas HTTP. Uma função por rota da API, tipada com os DTOs do contrato
+   (`services/dto.ts`, gerado do `server/openapi.yaml`). Ex.: `listarFeed(filtros): Promise<FeedPaginaDTO>`.
+2. **Hooks em `features/*/api.ts`**: chamam os serviços pelo TanStack Query, que guarda o resultado em cache
+   (`lib/cache.ts`) e atualiza as listas depois de uma ação.
+3. **Telas**: usam só os hooks. Não chamam `fetch` nem montam URL.
+
+| Assunto | Serviço | Hooks |
 | --- | --- | --- |
-| Perfil | `features/perfil/api.ts` | `usePerfil`, `useSalvarPerfil`, `perfilVazio` |
-| Feed e filtros | `features/feed/api.ts` | `useFeed(filtros)` |
-| Edital | `features/editais/api.ts` | `useEdital` |
-| Certidões (só decisor) | `features/certidoes/api.ts` | `useCertidoes`, `useRenovarCertidao` |
-
-Os tipos (`Certidao`, `FeedItem`, `Perfil`...) vêm de `api/tipos.ts`, gerados do contrato.
+| Feed e filtros | `services/feed.ts` | `useFeed(filtros)` |
+| Perfil | `services/perfil.ts` | `usePerfil`, `useSalvarPerfil`, `perfilVazio` |
+| Edital | `services/editais.ts` | `useEdital` |
+| Certidões (só decisor) | `services/certidoes.ts` | `useCertidoes`, `useRenovarCertidao` |
+| Saúde da API | `services/saude.ts` | (usado no cabeçalho) |
 
 ## Os quatro estados de toda tela
 
@@ -37,7 +42,7 @@ function Certidoes() {
 ```
 
 * **Carregando:** esqueleto (`Carregando`). Dá para passar outro em `carregando`.
-* **Erro:** mensagem em português e botão "Tentar de novo".
+* **Erro:** mensagem em português e botão "Tentar novamente".
 * **Vazio:** cada tela passa a sua mensagem, sempre com o próximo passo.
 * **Sucesso:** a função filha recebe os dados já tipados.
 
@@ -47,7 +52,7 @@ Os hooks de ação já mostram o aviso (toast) de sucesso e de erro e atualizam 
 Em formulários, o erro não vira toast: mostre nos campos.
 
 ```tsx
-import { errosPorCampo } from '@/api/erros'
+import { errosPorCampo } from '@/services/erros'
 
 const salvar = useSalvarPerfil()
 
@@ -84,21 +89,13 @@ Para ver um estado em todas as telas, use a URL:
 
 Quando o back estiver pronto, basta `VITE_API_MOCK=false`.
 
-## Login
-
-O token do Firebase Auth vai em `Authorization: Bearer` em toda chamada (`api/client.ts`).
-Sem usuário logado, a chamada vai sem token e a API responde 401.
-
-A empresa e o papel (`decisor` ou `analista`) vêm do token. No primeiro salvamento do perfil a API responde 201
-e grava esses dados no usuário; o `useSalvarPerfil` renova o token sozinho nesse caso.
-
 ## Quando o contrato mudar
 
 ```bash
 npm run gen:api
 ```
 
-Atualiza `api/schema.d.ts`. Se algum hook ou tela quebrar no `npm run build`, é sinal de que o contrato mudou ali.
+Atualiza `services/schema.d.ts`. Se algum hook ou tela quebrar no `npm run build`, é sinal de que o contrato mudou ali.
 
 ## Testes
 

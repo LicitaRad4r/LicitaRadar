@@ -1,6 +1,6 @@
 import { AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { mensagemAmigavel } from '@/api/erros'
+import { mensagemAmigavel } from '@/services/erros'
 
 type Props = {
   erro: unknown
@@ -21,7 +21,7 @@ export function Erro({ erro, aoTentarDeNovo, titulo = 'Não foi possível carreg
       <p className="max-w-sm text-sm text-muted-foreground">{mensagemAmigavel(erro)}</p>
       {aoTentarDeNovo && (
         <Button variant="outline" className="mt-2" onClick={aoTentarDeNovo}>
-          Tentar de novo
+          Tentar novamente
         </Button>
       )}
     </div>

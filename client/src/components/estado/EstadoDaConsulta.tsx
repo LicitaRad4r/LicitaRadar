@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
-import { mensagemAmigavel } from '@/api/erros'
+import { mensagemAmigavel } from '@/services/erros'
 import { Carregando } from './Carregando'
 import { Erro } from './Erro'
 

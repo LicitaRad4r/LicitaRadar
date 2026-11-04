@@ -1,18 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { chaves } from '@/api/chaves'
-import { api, desembrulhar, renovarTokenAgora } from '@/api/client'
-import type { Perfil } from '@/api/tipos'
+import { chaves } from '@/lib/chaves'
+import { renovarTokenAgora } from '@/services/http'
+import { obterPerfil, salvarPerfil } from '@/services/perfil'
+import type { PerfilDTO } from '@/services/dto'
 
 /** GET /v1/perfil. Antes do primeiro salvamento, os campos vêm vazios e `empresaId` vem nulo. */
 export function usePerfil() {
   return useQuery({
     queryKey: chaves.perfil,
-    queryFn: () => desembrulhar(api.GET('/v1/perfil')),
+    queryFn: obterPerfil,
   })
 }
 
 /** Perfil sem nenhum filtro preenchido: a tela deve convidar a configurar. */
-export function perfilVazio(perfil: Perfil) {
+export function perfilVazio(perfil: PerfilDTO) {
   return (
     !perfil.termosChave?.length &&
     !perfil.ufs?.length &&
@@ -33,11 +34,9 @@ export function perfilVazio(perfil: Perfil) {
 export function useSalvarPerfil() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (perfil: Perfil) => {
-      const { empresaId: _somenteLeitura, ...corpo } = perfil
-      const resposta = await api.PUT('/v1/perfil', { body: corpo })
-      const salvo = await desembrulhar(Promise.resolve(resposta))
-      if (resposta.response.status === 201) await renovarTokenAgora()
+    mutationFn: async (perfil: PerfilDTO) => {
+      const { perfil: salvo, criado } = await salvarPerfil(perfil)
+      if (criado) await renovarTokenAgora()
       return salvo
     },
     meta: { sucesso: 'Perfil salvo. O feed foi atualizado.', silenciarErro: true },

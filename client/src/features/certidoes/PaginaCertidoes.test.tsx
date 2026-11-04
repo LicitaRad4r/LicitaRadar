@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http, HttpResponse } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { API_URL } from '@/api/config'
+import { API_URL } from '@/services/config'
 import { hojeEmBrasilia, somarDias } from '@/lib/datas'
 import { servidor } from '@/mocks/servidor'
 import { rotas } from '@/routes/rotas'
@@ -153,7 +153,7 @@ describe('Certidões', () => {
     abrirCertidoes()
 
     expect(await screen.findByText('As certidões ficam com o decisor da empresa')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Tentar de novo' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Tentar novamente' })).not.toBeInTheDocument()
   })
 
   it('sem certidões, mostra o estado vazio', async () => {

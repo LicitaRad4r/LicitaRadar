@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { FiltrosFeed, Modalidade, Uf } from '@/api/tipos'
+import type { FiltrosFeedDTO, Modalidade, Uf } from '@/services/dto'
 import { hojeEmBrasilia, somarDias } from '@/lib/datas'
 import { formatarMoeda } from '@/lib/formatar'
 import { UFS } from '@/lib/ufs'
@@ -113,7 +113,7 @@ export function escreverFiltros(filtros: Filtros): URLSearchParams {
 }
 
 /** Converte os filtros da tela para os parâmetros do GET /v1/feed. Datas em dias de Brasília, como no contrato. */
-export function paraConsulta(filtros: Filtros, hoje = hojeEmBrasilia()): FiltrosFeed {
+export function paraConsulta(filtros: Filtros, hoje = hojeEmBrasilia()): FiltrosFeedDTO {
   return {
     ...(filtros.q && { q: filtros.q }),
     ...(filtros.ufs.length > 0 && { uf: filtros.ufs }),

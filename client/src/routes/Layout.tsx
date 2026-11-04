@@ -1,10 +1,12 @@
 import { Link, NavLink, Outlet } from 'react-router'
-import { API_MOCK } from '@/api/config'
-import { useSaudeApi } from '@/api/saude'
+import { API_MOCK } from '@/services/config'
+import { useQuery } from '@tanstack/react-query'
+import { chaves } from '@/lib/chaves'
+import { obterSaude } from '@/services/saude'
 import { cn } from '@/lib/utils'
 
 function StatusApi() {
-  const saude = useSaudeApi()
+  const saude = useQuery({ queryKey: chaves.saude, queryFn: obterSaude, refetchInterval: 60_000, retry: false })
   const texto = saude.isPending
     ? 'Verificando a API'
     : saude.isError
