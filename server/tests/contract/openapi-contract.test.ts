@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, test } from 'vitest'
 import { z } from 'zod'
 
-const openapiTexto = readFileSync(new URL('../../openapi.yaml', import.meta.url), 'utf8')
+// Normaliza CRLF (Windows) para LF: as regex abaixo assumem \n e o `.` do JS não casa com \r.
+const openapiTexto = readFileSync(new URL('../../openapi.yaml', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 const schemaClienteTexto = readFileSync(
   new URL('../../../client/src/api/schema.d.ts', import.meta.url),
   'utf8',
@@ -285,19 +286,16 @@ describe('Estrutura e rotas do contrato OpenAPI 3.1 (openapi.yaml)', () => {
     expect(openapiTexto).toContain('url: http://localhost:3333')
   })
 
-  test('documenta todas as 11 rotas e 16 operações previstas para as jornadas do MVP', () => {
+  test('documenta as 7 rotas e 9 operações do contrato v0.3 (CP2: perfil, feed, edital, certidões e saúde)', () => {
+    // v0.3: saíram feedback, acompanhamento(s), alertas e PATCH/DELETE de certidão (sem base na documentação / plano do CP2).
     const operacoesEsperadas: Array<[string, string[]]> = [
       ['/health', ['GET']],
       ['/v1/perfil', ['GET', 'PUT']],
       ['/v1/feed', ['GET']],
       ['/v1/editais/{editalId}', ['GET']],
-      ['/v1/editais/{editalId}/feedback', ['PUT', 'DELETE']],
-      ['/v1/editais/{editalId}/acompanhamento', ['PUT', 'DELETE']],
-      ['/v1/acompanhamentos', ['GET']],
       ['/v1/certidoes', ['GET', 'POST']],
-      ['/v1/certidoes/{certidaoId}', ['PATCH', 'DELETE']],
-      ['/v1/alertas', ['GET']],
-      ['/v1/alertas/{alertaId}', ['PATCH']],
+      ['/v1/certidoes/{certidaoId}', ['GET']],
+      ['/v1/certidoes/{certidaoId}/renovacao', ['PUT']],
     ]
 
     for (const [rota, metodos] of operacoesEsperadas) {
@@ -307,7 +305,9 @@ describe('Estrutura e rotas do contrato OpenAPI 3.1 (openapi.yaml)', () => {
         expect(mapaMetodos.has(metodo), `método ${metodo} ausente em ${rota}`).toBe(true)
         expect(mapaMetodos.get(metodo)!.operationId).toBeTruthy()
       }
+      expect([...mapaMetodos.keys()].sort(), `métodos de ${rota}`).toEqual([...metodos].sort())
     }
+    expect([...rotasOpenApi.keys()].sort()).toEqual(operacoesEsperadas.map(([rota]) => rota).sort())
   })
 
   test('mantém os tipos gerados no frontend (schema.d.ts) alinhados às rotas e schemas principais', () => {
@@ -319,16 +319,12 @@ describe('Estrutura e rotas do contrato OpenAPI 3.1 (openapi.yaml)', () => {
       'Health',
       'Erro',
       'Perfil',
-      'EditalResumo',
       'FeedItem',
       'FeedPagina',
       'EditalDetalhe',
-      'Etapa',
-      'Acompanhamento',
       'Certidao',
-      'CertidaoEntrada',
-      'CertidaoAtualizacao',
-      'Alerta',
+      'CertidaoStatus',
+      'Faixa',
     ]) {
       expect(schemaClienteTexto).toContain(`${schema}:`)
     }
