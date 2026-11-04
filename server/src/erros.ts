@@ -32,6 +32,23 @@ export function erroDeZod(e: ZodError): ErroApi {
   return new ErroApi(400, 'VALIDACAO', 'Dados inválidos.', detalhes)
 }
 
+/**
+ * Descreve um erro para o log SEM a mensagem: erros do Firestore trazem caminho de documento e ids
+ * (`projects/.../certidoes/cert-a-1`). Mantém o tipo, o código (ou status) e só as linhas "at ..." da pilha,
+ * o bastante para achar o ponto da falha sem expor dados.
+ */
+export function descreverErro(e: unknown): { erro: string; codigo?: string | number; pilha: string[] } {
+  const erro = e instanceof Error ? e : new Error('valor lançado não é um Error')
+  const { code, status } = erro as { code?: unknown; status?: unknown }
+  const codigo = [code, status].find((v): v is string | number => typeof v === 'string' || typeof v === 'number')
+  const pilha = (erro.stack ?? '')
+    .split('\n')
+    .map((linha) => linha.trim())
+    .filter((linha) => linha.startsWith('at '))
+    .slice(0, 8)
+  return { erro: erro.name, ...(codigo === undefined ? {} : { codigo }), pilha }
+}
+
 /** Registra o tratamento de erros no formato `Erro` do contrato OpenAPI. */
 export function registrarErros(app: FastifyInstance) {
   app.setNotFoundHandler((req, reply) => {
@@ -48,12 +65,13 @@ export function registrarErros(app: FastifyInstance) {
       }
       return reply.status(e.status).send({ codigo: e.codigo, mensagem: e.message, requestId: req.id, detalhes: e.detalhes })
     }
-    // JSON malformado e afins: o Fastify já marca como 4xx.
+    // JSON malformado, corpo grande demais (413), tipo de conteúdo não aceito (415) e afins: o Fastify marca como 4xx.
+    // O contrato só documenta `400` (inclusive para arquivo grande demais, "sem 413"), então todos saem como VALIDACAO 400.
     if ('statusCode' in e && e.statusCode && e.statusCode >= 400 && e.statusCode < 500) {
       return reply.status(400).send({ codigo: 'VALIDACAO', mensagem: 'Requisição inválida.', requestId: req.id })
     }
-    // Sem dados pessoais no log: só a mensagem e o id da requisição.
-    req.log.error({ msg: e.message }, 'erro inesperado')
+    // Sem dados no log: nada de e.message (pode trazer caminho de documento). Vão só rota, status, tipo, código e pilha.
+    req.log.error({ route: req.routeOptions.url, status: 500, ...descreverErro(e) }, 'erro inesperado')
     return reply.status(500).send({ codigo: 'ERRO_INTERNO', mensagem: 'Erro interno.', requestId: req.id })
   })
 }

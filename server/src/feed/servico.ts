@@ -1,5 +1,5 @@
 import type { Edital, Faixa } from '../dominio/edital.js'
-import { contemParcial, normalizar } from '../dominio/normalizar.js'
+import { contemParcial, normalizar, palavraUtil } from '../dominio/normalizar.js'
 import { diaBrasilia } from '../dominio/tempo.js'
 import type { Consulta } from './consulta.js'
 import type { FeedRepo } from './repositorio.js'
@@ -44,7 +44,8 @@ function passaFiltros(e: Edital, c: Consulta): boolean {
   if (c.valorMax !== undefined && (e.valorEstimado === null || e.valorEstimado > c.valorMax)) return false
   if (c.q) {
     const texto = normalizar(`${e.objeto} ${e.descricao}`)
-    const q = normalizar(c.q)
+    // Stopwords e palavras de 1 ou 2 letras não restringem a busca; se só sobrar isso, a busca não filtra.
+    const q = normalizar(c.q).filter(palavraUtil)
     if (!q.every((p) => contemParcial(texto, [p]))) return false
   }
   return true

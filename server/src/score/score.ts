@@ -1,5 +1,5 @@
 import type { Edital, Faixa } from '../dominio/edital.js'
-import { contemFrase, contemParcial, normalizar } from '../dominio/normalizar.js'
+import { contemFrase, contemParcial, normalizar, palavraUtil } from '../dominio/normalizar.js'
 import { diaBrasilia, diasUteisEntre } from '../dominio/tempo.js'
 import type { PerfilDados } from '../perfil/schema.js'
 
@@ -24,6 +24,8 @@ export function calcularScore(perfil: PerfilDados, edital: Edital, agora: Date):
   let pontosTermo = 0
   for (const termo of perfil.termosChave) {
     const t = normalizar(termo)
+    // Termo só de stopwords ("de", "para") não identifica nada: ignora.
+    if (!t.some(palavraUtil)) continue
     if (contemFrase(objeto, t)) pontosTermo = Math.max(pontosTermo, 40)
     else if (contemFrase(descricao, t) || contemParcial(objeto, t) || contemParcial(descricao, t)) pontosTermo = Math.max(pontosTermo, 20)
   }
