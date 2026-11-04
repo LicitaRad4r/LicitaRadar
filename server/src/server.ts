@@ -6,7 +6,13 @@ import { feedRepoFirestore } from './infra/firestore-feed.js'
 
 const port = Number(process.env.PORT ?? 3333)
 
+const corsOrigens = (process.env.CORS_ORIGENS ?? 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean)
+
 const app = buildApp({
+  corsOrigens,
   verificarToken: verificarTokenFirebase,
   definirClaims: definirClaimsFirebase,
   perfis: perfilRepoFirestore(),
