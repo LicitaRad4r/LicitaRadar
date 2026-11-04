@@ -85,9 +85,23 @@ Para ver um estado em todas as telas, use a URL:
 * `?mock=lento` respostas demoram 3 segundos
 * `?mock=sem-login` toda chamada responde 401
 * `?mock=sem-empresa` as rotas respondem 403 de empresa não configurada
-* `?papel=analista` simula o analista, que não acessa certidões (403)
+* `?papel=analista` simula o analista, que não acessa certidões (403); ou entre como `analista.a@licitaradar.local`
 
 Quando o back estiver pronto, basta `VITE_API_MOCK=false`.
+
+## Login e erros de acesso (Jornada 4)
+
+A sessão fica em `lib/sessao.ts`. Com a API real ela usa o Firebase Auth (`lib/firebase.ts`); com a API
+simulada, um login falso com os mesmos usuários do seed do back (`mocks/sessao.ts`, senha `senha-local-123`).
+
+* O token vai em `Authorization: Bearer` em toda chamada (`services/http.ts`).
+* Sem sessão, qualquer página leva ao `/login`, e depois de entrar a pessoa volta para onde estava.
+* **Tratamento central:** o cliente HTTP avisa todo 401 e todo 403 `ACESSO_NEGADO`, venha de qual tela vier.
+  O `useTratamentoDeAcesso` (no Layout) leva o 401 ao login, com o aviso de sessão expirada, e o 403 à página
+  `/acesso-negado`. O 403 `EMPRESA_NAO_CONFIGURADA` não é falta de permissão e aparece na própria tela.
+* A empresa e o papel (`decisor` ou `analista`) vêm do token. Para o analista, o menu não mostra Certidões.
+* No primeiro salvamento do perfil a API responde 201 e grava empresa e papel no usuário; o `useSalvarPerfil`
+  renova o token sozinho nesse caso.
 
 ## Quando o contrato mudar
 

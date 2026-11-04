@@ -10,7 +10,7 @@ let renovarToken: () => Promise<void> = async () => {}
 
 /**
  * Define de onde vem o token enviado em `Authorization: Bearer`, e como forçar um token novo.
- * Chamado uma vez no main.tsx com o Firebase Auth; nos testes pode ser trocado.
+ * Chamado uma vez no main.tsx com a sessão (Firebase Auth ou simulada); nos testes pode ser trocado.
  */
 export function configurarToken(obter: ObterToken, renovar: () => Promise<void> = async () => {}) {
   obterToken = obter
@@ -18,11 +18,44 @@ export function configurarToken(obter: ObterToken, renovar: () => Promise<void> 
 }
 
 /**
- * Pede um token novo ao Firebase. Necessário depois do primeiro PUT /v1/perfil,
+ * Pede um token novo à sessão. Necessário depois do primeiro PUT /v1/perfil,
  * quando o back grava os claims `empresaId` e `role` no usuário.
  */
 export function renovarTokenAgora() {
   return renovarToken()
+}
+
+/** Erros de acesso tratados num lugar só, para a aplicação inteira (Jornada 4). */
+export type ErroDeAcesso = 'NAO_AUTENTICADO' | 'ACESSO_NEGADO'
+
+const ouvintesDeAcesso = new Set<(erro: ErroDeAcesso) => void>()
+
+/**
+ * Avisa sobre todo 401 e todo 403 de acesso negado que voltar da API, venha de qual tela vier.
+ * Quem decide o que fazer (ir para o login, abrir "Acesso Negado") é o `TratamentoDeAcesso`, nas rotas.
+ */
+export function aoErroDeAcesso(ouvinte: (erro: ErroDeAcesso) => void) {
+  ouvintesDeAcesso.add(ouvinte)
+  return () => {
+    ouvintesDeAcesso.delete(ouvinte)
+  }
+}
+
+const avisarAcesso = (erro: ErroDeAcesso) => ouvintesDeAcesso.forEach((ouvinte) => ouvinte(erro))
+
+const tratamentoCentral: Middleware = {
+  async onResponse({ response }) {
+    if (response.status === 401) avisarAcesso('NAO_AUTENTICADO')
+    if (response.status === 403) {
+      // 403 também pode ser EMPRESA_NAO_CONFIGURADA, que não é falta de permissão: lê o código para separar.
+      const corpo = (await response
+        .clone()
+        .json()
+        .catch(() => null)) as { codigo?: string } | null
+      if (corpo?.codigo === 'ACESSO_NEGADO') avisarAcesso('ACESSO_NEGADO')
+    }
+    return undefined
+  },
 }
 
 const autenticacao: Middleware = {
@@ -44,7 +77,7 @@ export const api = createClient<paths>({
   fetch: (request) => globalThis.fetch(request),
 })
 
-api.use(autenticacao)
+api.use(autenticacao, tratamentoCentral)
 
 type Resultado<T> = { data?: T; error?: unknown; response: Response }
 

@@ -15,7 +15,8 @@ import { banco, calcularCertidao, editais } from './dados'
  *   lento        respostas demoram 3 s (para ver o carregando)
  *   sem-login    toda chamada responde 401
  *   sem-empresa  rotas de negócio respondem 403 EMPRESA_NAO_CONFIGURADA
- * E simular o papel do usuário com ?papel=analista (certidões respondem 403 ACESSO_NEGADO).
+ * O papel vem da sessão simulada (entre como analista.a@licitaradar.local) ou de ?papel=analista:
+ * para o analista, as certidões respondem 403 ACESSO_NEGADO.
  */
 type Cenario = 'normal' | 'vazio' | 'descartados' | 'erro' | 'lento' | 'sem-login' | 'sem-empresa'
 
@@ -25,7 +26,11 @@ function parametroDaPagina(nome: string) {
 }
 
 const cenarioAtual = () => (parametroDaPagina('mock') as Cenario | null) ?? 'normal'
-const papelAtual = () => (parametroDaPagina('papel') === 'analista' ? 'analista' : 'decisor')
+/** Papel do usuário: pelo token da sessão simulada (`mock:analista`) ou por ?papel=analista na URL. */
+const papelAtual = (request: Request) =>
+  request.headers.get('authorization') === 'Bearer mock:analista' || parametroDaPagina('papel') === 'analista'
+    ? 'analista'
+    : 'decisor'
 
 const url = (caminho: string) => `${API_URL}${caminho}`
 
@@ -59,7 +64,7 @@ function rota(resolver: HttpResponseResolver, { negocio = true } = {}): HttpResp
 /** Só o decisor acessa certidões (RF03). */
 function soDecisor(resolver: HttpResponseResolver): HttpResponseResolver {
   return rota((info) =>
-    papelAtual() === 'analista' ? erro(403, 'ACESSO_NEGADO', 'Acesso negado.') : resolver(info),
+    papelAtual(info.request) === 'analista' ? erro(403, 'ACESSO_NEGADO', 'Acesso negado.') : resolver(info),
   )
 }
 
