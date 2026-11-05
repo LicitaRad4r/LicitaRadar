@@ -3,7 +3,16 @@
 API em Node.js + TypeScript + Fastify.
 
 ## Rodando
-Na raiz do repositório: `docker compose up --build`. Saúde da API: http://localhost:3333/health
+
+Na **raiz** do monorepo (não nesta pasta):
+
+```bash
+docker compose up --build
+```
+
+Saúde da API: http://localhost:3333/health
+
+Não é necessário `npm install` na máquina para subir o ambiente — o Compose instala as deps na imagem. Detalhes: [`README.md`](../README.md) na raiz.
 
 ## Contrato da API
 O contrato (OpenAPI 3.1, versão 0.2, rascunho do Checkpoint 2) está em [`openapi.yaml`](./openapi.yaml).
