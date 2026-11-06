@@ -9,6 +9,7 @@ Não é necessário instalar Node.js, Firebase CLI nem rodar `npm install` na su
 ```bash
 git clone https://github.com/LicitaRad4r/LicitaRadar.git
 cd LicitaRadar
+cp .env.example .env
 docker compose up --build
 ```
 
@@ -24,8 +25,6 @@ Quando terminar de subir, use:
 | Emulador de Auth          | localhost:9099               |
 | Emulador de Firestore     | localhost:8080               |
 
-O `.env` é opcional: todos os valores já têm padrão no `docker-compose.yml`. Para mudar algo, copie `.env.example` para `.env`.
-
 Os dados dos emuladores são salvos ao rodar `docker compose down` e restaurados no próximo `up`.
 Para zerar tudo: `docker compose down -v`.
 
@@ -35,11 +34,12 @@ Alterou dependências (`package.json`)? Rode de novo `docker compose up --build`
 
 | Sintoma | O que fazer |
 | ------- | ----------- |
+| Erro pedindo `.env` / variável não definida | `cp .env.example .env` na raiz do repo. |
 | `Cannot connect to the Docker daemon` | Abra o Docker Desktop e espere ficar “running”. |
 | Porta em uso (`3333`, `5173`, `4000`, `8080`, `9099`) | Feche o processo que usa a porta ou mude `API_PORT` / `WEB_PORT` no `.env`. |
 | Build do Firebase demora ou parece travado | Na primeira vez é normal (baixa o emulador). Espere 2–5 min. |
 | Container antigo / deps estranhas | `docker compose down -v` e depois `docker compose up --build`. |
-| Quer só validar o arquivo Compose | `docker compose config --quiet` |
+| Quer só validar o arquivo Compose | Com `.env` criado: `docker compose config --quiet` |
 
 ### O que **não** fazer para “só rodar”
 
@@ -70,7 +70,7 @@ Até a Semana 4 tudo roda **só no computador** (Compose + emuladores). Evidênc
 2. Nunca clicar em Upgrade / Blaze no Firebase.
 3. Testes pesados e seed grande só no emulador — nunca no Firestore real.
 4. Um projeto Firebase por equipe.
-5. Segredos só em GitHub Secrets / variáveis do Render — nunca no repositório.
+5. Segredos só em GitHub Secrets / variáveis do Render — nunca no repositório (nunca commite `.env`).
 6. Prints de “plano gratuito / sem pagamento” no repo de documentação (`docs/finops/`).
 7. Serviço novo = ADR + aprovação do Tech Lead.
 
