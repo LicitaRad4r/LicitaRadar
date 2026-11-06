@@ -21,7 +21,13 @@ if (fonte === 'fixtures' && !process.env.FIRESTORE_EMULATOR_HOST && process.env.
   throw new Error('INGEST_FONTE=fixtures fora do emulador exige INGEST_PERMITIR_FIXTURES=true.')
 }
 
+const corsOrigens = (process.env.CORS_ORIGENS ?? 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean)
+
 const app = buildApp({
+  corsOrigens,
   verificarToken: verificarTokenFirebase,
   definirClaims: definirClaimsFirebase,
   perfis: perfilRepoFirestore(),

@@ -1,5 +1,6 @@
 import type { Writable } from 'node:stream'
 import { randomUUID } from 'node:crypto'
+import cors from '@fastify/cors'
 import multipart from '@fastify/multipart'
 import Fastify, { LogController, type FastifyInstance } from 'fastify'
 import { rotasCertidoes } from './certidoes/rotas.js'
@@ -29,6 +30,8 @@ export interface Dependencias {
   ingestao?: () => Promise<ResultadoIngestao>
   /** Verifica as dependências para o `/readyz` (ex.: Firestore). Lança erro se não estiver pronto. */
   prontidao?: () => Promise<void>
+  /** Origens do front aceitas pelo CORS (`CORS_ORIGENS`, separadas por vírgula). Padrão: o Vite local. */
+  corsOrigens?: string[]
   logger?: boolean
   /** Só para testes: captura os logs. */
   logStream?: Writable
@@ -67,6 +70,14 @@ export function buildApp(deps: Dependencias): FastifyInstance {
   })
 
   registrarErros(app)
+  // CORS antes da autenticação: o preflight (OPTIONS) não leva `Authorization` e até a resposta 401 precisa dos
+  // cabeçalhos de CORS para o front conseguir ler o erro. Os hooks rodam na ordem de registro.
+  app.register(cors, {
+    origin: deps.corsOrigens ?? ['http://localhost:5173'],
+    methods: ['GET', 'PUT', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Authorization', 'Content-Type'],
+    maxAge: 600,
+  })
   // Upload: no máximo 1 arquivo de 5 MB por requisição (US14/US15).
   app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 10 } })
   registrarAuth(app, deps.verificarToken, { tokenJob: deps.tokenJob })

@@ -3,7 +3,16 @@
 API em Node.js + TypeScript + Fastify.
 
 ## Rodando
-Na raiz do repositório: `docker compose up --build`. Saúde da API: http://localhost:3333/healthz (e `/readyz`, que também checa o Firestore)
+
+Na **raiz** do monorepo (não nesta pasta):
+
+```bash
+docker compose up --build
+```
+
+Saúde da API: http://localhost:3333/healthz (e `/readyz`, que também checa o Firestore).
+
+Não é necessário `npm install` na máquina para subir o ambiente — o Compose instala as deps na imagem. Detalhes: [`README.md`](../README.md) na raiz.
 
 ## Contrato da API
 O contrato (OpenAPI 3.1, versão 0.3, Checkpoint 2) está em [`openapi.yaml`](./openapi.yaml).
@@ -35,6 +44,7 @@ O que a ingestão faz, nesta ordem:
 | `PNCP_DIAS_A_FRENTE` | `dataFinal` da consulta = hoje + N dias | 30 |
 | `PNCP_MAX_PAGINAS` | teto de páginas por modalidade | 3 |
 | `PNCP_INTERVALO_MS` | pausa entre requisições ao PNCP (limite de taxa) | 5000 |
+| `CORS_ORIGENS` | origens do front aceitas pelo CORS, separadas por vírgula (em produção, o domínio do Firebase Hosting) | `http://localhost:5173` |
 | `PNCP_BASE_URL` | base da API de consulta | `https://pncp.gov.br/api/consulta` |
 
 ### Rodando local (emulador no ar)
