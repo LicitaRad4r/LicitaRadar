@@ -5,7 +5,7 @@ import { z } from 'zod'
 // Normaliza CRLF (Windows) para LF: as regex abaixo assumem \n e o `.` do JS não casa com \r.
 const openapiTexto = readFileSync(new URL('../../openapi.yaml', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 const schemaClienteTexto = readFileSync(
-  new URL('../../../client/src/api/schema.d.ts', import.meta.url),
+  new URL('../../../client/src/services/schema.d.ts', import.meta.url),
   'utf8',
 )
 
