@@ -7,6 +7,7 @@ API em Node.js + TypeScript + Fastify.
 Na **raiz** do monorepo (não nesta pasta):
 
 ```bash
+cp .env.example .env   # obrigatório na raiz do monorepo
 docker compose up --build
 ```
 

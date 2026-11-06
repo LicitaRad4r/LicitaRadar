@@ -4,8 +4,11 @@ services:
   firebase:
     build: ./infra/firebase
     stop_grace_period: 30s
+    env_file:
+      - path: .env
+        required: true
     environment:
-      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-demo-licitaradar}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:?Defina FIREBASE_PROJECT_ID no .env (cp .env.example .env)}
     ports:
       - "4000:4000"
       - "8080:8080"
@@ -24,13 +27,16 @@ services:
 
   api:
     build: ./server
+    env_file:
+      - path: .env
+        required: true
     environment:
       PORT: 3333
-      GCLOUD_PROJECT: ${FIREBASE_PROJECT_ID:-demo-licitaradar}
+      GCLOUD_PROJECT: ${FIREBASE_PROJECT_ID:?Defina FIREBASE_PROJECT_ID no .env}
       FIRESTORE_EMULATOR_HOST: firebase:8080
       FIREBASE_AUTH_EMULATOR_HOST: firebase:9099
     ports:
-      - "${API_PORT:-3333}:3333"
+      - "${API_PORT:?Defina API_PORT no .env}:3333"
     volumes:
       - ./server:/app
       - /app/node_modules
@@ -40,15 +46,18 @@ services:
 
   web:
     build: ./client
+    env_file:
+      - path: .env
+        required: true
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:3333}
-      VITE_API_MOCK: ${VITE_API_MOCK:-true}
-      VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY:-demo-api-key}
-      VITE_FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-demo-licitaradar}
-      VITE_FIREBASE_AUTH_EMULATOR_URL: ${VITE_FIREBASE_AUTH_EMULATOR_URL:-http://localhost:9099}
-      VITE_FIRESTORE_EMULATOR_HOST: ${VITE_FIRESTORE_EMULATOR_HOST:-localhost:8080}
+      VITE_API_URL: ${VITE_API_URL:?Defina VITE_API_URL no .env}
+      VITE_API_MOCK: ${VITE_API_MOCK:?Defina VITE_API_MOCK no .env}
+      VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY:?Defina VITE_FIREBASE_API_KEY no .env}
+      VITE_FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:?Defina FIREBASE_PROJECT_ID no .env}
+      VITE_FIREBASE_AUTH_EMULATOR_URL: ${VITE_FIREBASE_AUTH_EMULATOR_URL:?Defina VITE_FIREBASE_AUTH_EMULATOR_URL no .env}
+      VITE_FIRESTORE_EMULATOR_HOST: ${VITE_FIRESTORE_EMULATOR_HOST:?Defina VITE_FIRESTORE_EMULATOR_HOST no .env}
     ports:
-      - "${WEB_PORT:-5173}:5173"
+      - "${WEB_PORT:?Defina WEB_PORT no .env}:5173"
     volumes:
       - ./client:/app
       - /app/node_modules
