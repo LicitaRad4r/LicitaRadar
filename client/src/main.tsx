@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { StrictMode, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
@@ -6,6 +6,12 @@ import { configurarToken } from '@/services/http'
 import { API_MOCK } from '@/services/config'
 import { Provedores } from '@/components/Provedores'
 import { configurarSessao, sessao } from '@/lib/sessao'
+import { ErroDeConfiguracao } from '@/lib/configFirebase'
+import { PaginaSemConfiguracao } from '@/features/acesso/PaginaSemConfiguracao'
+
+function desenhar(conteudo: ReactNode) {
+  createRoot(document.getElementById('root')!).render(<StrictMode>{conteudo}</StrictMode>)
+}
 
 async function iniciar() {
   if (API_MOCK) {
@@ -14,17 +20,21 @@ async function iniciar() {
     await worker.start({ onUnhandledFrame: 'bypass' })
     configurarSessao(criarSessaoMock())
   } else {
-    const { sessaoFirebase } = await import('@/lib/firebase')
-    configurarSessao(sessaoFirebase)
+    try {
+      const { sessaoFirebase } = await import('@/lib/firebase')
+      configurarSessao(sessaoFirebase)
+    } catch (erro) {
+      if (!(erro instanceof ErroDeConfiguracao)) throw erro
+      desenhar(<PaginaSemConfiguracao faltando={erro.faltando} />)
+      return
+    }
   }
   configurarToken(sessao.token, sessao.renovar)
 
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <Provedores>
-        <App />
-      </Provedores>
-    </StrictMode>,
+  desenhar(
+    <Provedores>
+      <App />
+    </Provedores>,
   )
 }
 
