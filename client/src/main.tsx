@@ -2,19 +2,22 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
-import { configurarToken } from '@/api/client'
-import { API_MOCK } from '@/api/config'
+import { configurarToken } from '@/services/http'
+import { API_MOCK } from '@/services/config'
 import { Provedores } from '@/components/Provedores'
-import { obterTokenFirebase, renovarTokenFirebase } from '@/lib/firebase'
+import { configurarSessao, sessao } from '@/lib/sessao'
 
 async function iniciar() {
-  configurarToken(obterTokenFirebase, renovarTokenFirebase)
-
   if (API_MOCK) {
-    // Carregado só quando o mock está ligado, para não ir no build de produção.
-    const { worker } = await import('./mocks/browser')
+    // Carregados só quando o mock está ligado, para não irem no build de produção.
+    const [{ worker }, { criarSessaoMock }] = await Promise.all([import('./mocks/browser'), import('./mocks/sessao')])
     await worker.start({ onUnhandledFrame: 'bypass' })
+    configurarSessao(criarSessaoMock())
+  } else {
+    const { sessaoFirebase } = await import('@/lib/firebase')
+    configurarSessao(sessaoFirebase)
   }
+  configurarToken(sessao.token, sessao.renovar)
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>

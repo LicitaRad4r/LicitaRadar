@@ -1,11 +1,11 @@
 import { useEffect } from 'react'
-import { SearchX, Radar } from 'lucide-react'
+import { LoaderCircle, Radar, SearchX } from 'lucide-react'
 import { EstadoDaConsulta, Vazio } from '@/components/estado'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Paginacao } from '@/components/Paginacao'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type { MotivoVazio } from '@/api/tipos'
+import type { MotivoVazio } from '@/services/dto'
 import { useFeed } from './api'
 import { BarraDeFiltros } from './BarraDeFiltros'
 import { ItemDoFeed } from './ItemDoFeed'
@@ -43,7 +43,7 @@ export function PaginaFeed() {
 
       <EstadoDaConsulta
         consulta={feed}
-        tituloErro="Não foi possível carregar os editais"
+        tituloErro="Não foi possível carregar as oportunidades"
         carregando={<EsqueletoDoFeed />}
         vazio={<VazioDoFeed motivo={feed.data?.motivoVazio ?? null} temFiltro={temFiltro} limpar={limpar} />}
       >
@@ -51,7 +51,7 @@ export function PaginaFeed() {
           <div aria-busy={feed.isPlaceholderData}>
             <div
               className={cn(
-                'divide-y border-y transition-opacity',
+                'space-y-3 transition-opacity',
                 feed.isPlaceholderData && 'pointer-events-none opacity-60',
               )}
             >
@@ -122,25 +122,31 @@ function VazioDoFeed({
   return (
     <Vazio
       icone={<SearchX aria-hidden />}
-      titulo="Nenhum edital combina com o seu perfil"
-      descricao="Há editais no radar, mas nenhum passou pelos critérios do seu perfil. Ampliar os termos, os estados ou a faixa de valor traz mais resultados."
+      titulo="Nenhum edital combina com o perfil da sua empresa"
+      descricao="Há editais no radar, mas nenhum passou pelos critérios do perfil. Reveja os termos-chave e a faixa de valor: termos mais amplos e uma faixa maior trazem mais oportunidades."
     />
   )
 }
 
-/** Esqueleto no mesmo formato das linhas do feed, para a tela não pular quando os editais chegam. */
+/**
+ * Carregando: aviso em texto (com o ícone girando) mais esqueletos no formato dos cards,
+ * para a tela não pular quando os editais chegam.
+ */
 function EsqueletoDoFeed() {
   return (
-    <div role="status" aria-label="Carregando editais" aria-busy="true" className="divide-y border-y">
-      {Array.from({ length: 5 }, (_, i) => (
-        <div key={i} className="flex gap-4 py-5">
-          <Skeleton className="size-14 rounded-full" />
+    <div role="status" aria-busy="true" className="space-y-3">
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <LoaderCircle aria-hidden className="size-4 animate-spin motion-reduce:animate-none" />
+        Carregando oportunidades
+      </p>
+      {Array.from({ length: 4 }, (_, i) => (
+        <div key={i} aria-hidden className="flex gap-4 rounded-xl border p-5">
           <div className="flex-1 space-y-2.5">
-            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-7 w-28 rounded-full" />
             <Skeleton className="h-5 w-3/4" />
-            <Skeleton className="h-4 w-1/3" />
+            <Skeleton className="h-3.5 w-1/3" />
           </div>
-          <div className="hidden w-40 space-y-2 sm:block">
+          <div className="hidden w-44 space-y-2 border-l pl-5 sm:block">
             <Skeleton className="ml-auto h-4 w-28" />
             <Skeleton className="ml-auto h-4 w-20" />
           </div>

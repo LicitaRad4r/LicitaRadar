@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { API_URL } from '@/api/config'
+import { API_URL } from '@/services/config'
 import { useCertidoes } from '@/features/certidoes/api'
 import { servidor } from '@/mocks/servidor'
 import { renderizar } from '@/testes/utils'
@@ -56,7 +56,7 @@ describe('EstadoDaConsulta', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('O servidor teve um problema')
 
     falhar = false
-    await userEvent.click(screen.getByRole('button', { name: 'Tentar de novo' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
 
     await waitFor(() => expect(screen.getByText('Recuperada')).toBeInTheDocument())
   })

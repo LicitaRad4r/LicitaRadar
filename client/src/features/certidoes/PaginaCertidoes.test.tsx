@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http, HttpResponse } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { API_URL } from '@/api/config'
+import { API_URL } from '@/services/config'
 import { hojeEmBrasilia, somarDias } from '@/lib/datas'
 import { servidor } from '@/mocks/servidor'
 import { rotas } from '@/routes/rotas'
@@ -144,7 +144,7 @@ describe('Certidões', () => {
     expect(nomesEm(grupo(/Precisam de atenção \(3\)/))).toContain('CRF do FGTS')
   })
 
-  it('para o analista, explica que as certidões ficam com o decisor', async () => {
+  it('para o analista, o tratamento central abre a página Acesso negado', async () => {
     servidor.use(
       http.get(`${API_URL}/v1/certidoes`, () =>
         HttpResponse.json({ codigo: 'ACESSO_NEGADO', mensagem: 'Acesso negado.', requestId: 'r2' }, { status: 403 }),
@@ -152,8 +152,7 @@ describe('Certidões', () => {
     )
     abrirCertidoes()
 
-    expect(await screen.findByText('As certidões ficam com o decisor da empresa')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Tentar de novo' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Acesso negado' })).toBeInTheDocument()
   })
 
   it('sem certidões, mostra o estado vazio', async () => {

@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react'
-import { FileCheck2, ShieldAlert } from 'lucide-react'
-import { ApiError } from '@/api/erros'
-import type { Certidao } from '@/api/tipos'
+import { FileCheck2 } from 'lucide-react'
+import type { CertidaoDTO } from '@/services/dto'
 import { EstadoDaConsulta, Vazio } from '@/components/estado'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -13,25 +12,13 @@ import { COR_STATUS, ROTULO_STATUS, textoValidade } from './rotulos'
 
 /**
  * Painel do decisor com as certidões da empresa (issue #17).
+ * O analista recebe 403 da API, e o tratamento central abre a página "Acesso Negado".
  * As que pedem ação (vencidas, urgentes e em atenção) vêm primeiro, na ordem de urgência do back.
  */
 export function PaginaCertidoes() {
   const certidoes = useCertidoes()
-  const [renovando, setRenovando] = useState<Certidao | null>(null)
+  const [renovando, setRenovando] = useState<CertidaoDTO | null>(null)
   const [recemRenovada, setRecemRenovada] = useState<string | null>(null)
-
-  // Só o decisor acessa certidões. O analista recebe 403 e vê uma explicação, sem "tentar de novo".
-  if (certidoes.error instanceof ApiError && certidoes.error.codigo === 'ACESSO_NEGADO') {
-    return (
-      <PaginaComTitulo>
-        <Vazio
-          icone={<ShieldAlert aria-hidden />}
-          titulo="As certidões ficam com o decisor da empresa"
-          descricao="O seu perfil de acesso é de analista, que não vê documentos legais nem financeiros. Se precisar de uma certidão, peça ao decisor."
-        />
-      </PaginaComTitulo>
-    )
-  }
 
   return (
     <PaginaComTitulo>
@@ -108,10 +95,10 @@ function Grupo({
   aoRenovar,
 }: {
   titulo: string
-  certidoes: Certidao[]
+  certidoes: CertidaoDTO[]
   vazio?: string
   recemRenovada: string | null
-  aoRenovar: (certidao: Certidao) => void
+  aoRenovar: (certidao: CertidaoDTO) => void
 }) {
   const id = `grupo-${titulo.split(' ')[0].toLowerCase()}`
   return (
@@ -142,7 +129,7 @@ function LinhaCertidao({
   destacar,
   aoRenovar,
 }: {
-  certidao: Certidao
+  certidao: CertidaoDTO
   destacar: boolean
   aoRenovar: () => void
 }) {

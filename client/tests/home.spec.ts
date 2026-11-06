@@ -6,7 +6,7 @@ test('abre no feed com os editais mais aderentes primeiro', async ({ page }) => 
   await expect(page.getByRole('link', { name: 'LicitaRadar' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Editais para você' })).toBeVisible()
   await expect(page.getByRole('article')).toHaveCount(10)
-  await expect(page.getByRole('article').first().getByText('Alta aderência')).toBeVisible()
+  await expect(page.getByRole('article').first().getByRole('img', { name: /aderência alta$/ })).toBeVisible()
 })
 
 test('mostra o estado vazio com filtro sem resultado e permite limpar', async ({ page }) => {
@@ -64,4 +64,22 @@ test('renova uma certidão urgente e ela passa para Em dia', async ({ page }) =>
   await expect(dialogo).toBeHidden()
   await expect(page.getByRole('region', { name: /Em dia/ }).getByRole('listitem', { name: 'CRF do FGTS' })).toBeVisible()
   await expect(page.getByText('Certidão renovada.')).toBeVisible()
+})
+
+test('analista: sai, entra de novo, não vê Certidões e recebe Acesso negado pela URL', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Sair' }).click()
+  await expect(page.getByRole('heading', { name: 'Entrar' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Analista, empresa A' }).click()
+  await page.getByRole('button', { name: 'Entrar' }).click()
+
+  const menu = page.getByRole('navigation', { name: 'Principal' })
+  await expect(menu.getByRole('link', { name: 'Editais' })).toBeVisible()
+  await expect(menu.getByRole('link', { name: 'Certidões' })).toHaveCount(0)
+
+  // Abre /certidoes sem recarregar a página (recarregar reiniciaria a sessão simulada como decisor).
+  await page.evaluate("history.pushState({}, '', '/certidoes'); dispatchEvent(new PopStateEvent('popstate'))")
+  await expect(page.getByRole('heading', { name: 'Acesso negado' })).toBeVisible()
+  await expect(page).toHaveURL(/\/acesso-negado$/)
 })

@@ -1,6 +1,6 @@
 import { useEffect, useId, useState, type FormEvent } from 'react'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
-import type { Modalidade, Uf } from '@/api/tipos'
+import type { Modalidade, Uf } from '@/services/dto'
 import { Button } from '@/components/ui/button'
 import { UFS } from '@/lib/ufs'
 import { cn } from '@/lib/utils'

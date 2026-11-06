@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:e2e": "playwright test",
-    "gen:api": "npx --yes openapi-typescript@7 ../server/openapi.yaml -o src/api/schema.d.ts"
+    "gen:api": "npx --yes openapi-typescript@7 ../server/openapi.yaml -o src/services/schema.d.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
