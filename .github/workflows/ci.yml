@@ -69,4 +69,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Criar .env a partir do example
+        run: cp .env.example .env
       - run: docker compose config --quiet
