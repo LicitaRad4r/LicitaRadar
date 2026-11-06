@@ -2,9 +2,8 @@
   "name": "licitaradar",
   "private": true,
   "scripts": {
+    "predev": "node -e \"try{require('fs').accessSync('.env')}catch{console.error('Falta .env. Rode: cp .env.example .env');process.exit(1)}\"",
     "dev": "docker compose up --build",
-    "dev:check-env": "node -e \"require('fs').accessSync('.env');\" || (console.error('Falta .env. Rode: cp .env.example .env') , process.exit(1))",
-
     "lint": "npm --prefix client run lint && npm --prefix server run lint",
     "build": "npm --prefix client run build && npm --prefix server run build"
   }
