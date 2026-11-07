@@ -1,9 +1,24 @@
-import { applicationDefault, getApps, initializeApp } from 'firebase-admin/app'
+import { applicationDefault, cert, getApps, initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 import type { VerificarToken } from '../auth.js'
 import type { DefinirClaims, PerfilRepo } from '../perfil/repositorio.js'
 import type { PerfilDados } from '../perfil/schema.js'
+
+/**
+ * Credencial do Admin SDK fora do emulador: em hospedagem sem arquivo (Render), a chave da conta de serviço
+ * vem inteira em FIREBASE_SERVICE_ACCOUNT_JSON; sem ela, vale a credencial padrão do ambiente.
+ */
+function credencial() {
+  const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
+  if (!json) return applicationDefault()
+  try {
+    return cert(JSON.parse(json))
+  } catch {
+    // Sem repassar o erro original: ele pode trazer um trecho da chave no texto.
+    throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON inválida: use o JSON completo da conta de serviço.')
+  }
+}
 
 /**
  * Com FIREBASE_AUTH_EMULATOR_HOST e FIRESTORE_EMULATOR_HOST definidos (docker compose),
@@ -13,7 +28,7 @@ export function iniciarFirebase() {
   if (getApps().length === 0) {
     initializeApp({
       projectId: process.env.GCLOUD_PROJECT ?? 'demo-licitaradar',
-      ...(process.env.FIREBASE_AUTH_EMULATOR_HOST ? {} : { credential: applicationDefault() }),
+      ...(process.env.FIREBASE_AUTH_EMULATOR_HOST ? {} : { credential: credencial() }),
     })
   }
 }

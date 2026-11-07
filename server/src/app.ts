@@ -10,6 +10,8 @@ import type { Relogio } from './dominio/tempo.js'
 import { registrarErros } from './erros.js'
 import type { FeedRepo } from './feed/repositorio.js'
 import { rotasFeed } from './feed/rotas.js'
+import { rotasIngestao } from './ingestao/rotas.js'
+import type { ResultadoIngestao } from './ingestao/servico.js'
 import type { DefinirClaims, PerfilRepo } from './perfil/repositorio.js'
 import { rotasPerfil } from './perfil/rotas.js'
 
@@ -22,6 +24,12 @@ export interface Dependencias {
   arquivos: ArmazenamentoArquivos
   /** Relógio injetável (testes usam data fixa). */
   agora?: Relogio
+  /** Token do job de ingestão (`INGEST_JOB_TOKEN`). Sem ele, `POST /jobs/ingestao-pncp` recusa tudo. */
+  tokenJob?: string
+  /** Executa a ingestão do PNCP. Sem ele, a rota do job não existe. */
+  ingestao?: () => Promise<ResultadoIngestao>
+  /** Verifica as dependências para o `/readyz` (ex.: Firestore). Lança erro se não estiver pronto. */
+  prontidao?: () => Promise<void>
   /** Origens do front aceitas pelo CORS (`CORS_ORIGENS`, separadas por vírgula). Padrão: o Vite local. */
   corsOrigens?: string[]
   logger?: boolean
@@ -72,9 +80,22 @@ export function buildApp(deps: Dependencias): FastifyInstance {
   })
   // Upload: no máximo 1 arquivo de 5 MB por requisição (US14/US15).
   app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 10 } })
-  registrarAuth(app, deps.verificarToken)
+  registrarAuth(app, deps.verificarToken, { tokenJob: deps.tokenJob })
 
   app.get('/health', async () => ({ status: 'ok', timestamp: agora().toISOString() }))
+  // Saúde para a plataforma de hospedagem: `/healthz` = a API está de pé; `/readyz` = e o Firestore responde.
+  // Públicas, sem dados e sem detalhes de erro no corpo.
+  app.get('/healthz', async () => ({ status: 'ok' }))
+  app.get('/readyz', async (req, reply) => {
+    try {
+      await deps.prontidao?.()
+      return { status: 'ready' }
+    } catch {
+      req.log.warn({ route: req.routeOptions.url, status: 503 }, 'api nao pronta')
+      return reply.status(503).send({ status: 'unavailable' })
+    }
+  })
+  if (deps.ingestao) rotasIngestao(app, deps.ingestao)
   for (const prefix of PREFIXOS) {
     app.register(
       async (rotasDoPrefixo) => {

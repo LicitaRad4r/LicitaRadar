@@ -189,17 +189,17 @@ describe('segurança (CT-SEG)', () => {
     expect(new Set(ids).size).toBe(ids.length)
   })
 
-  it('100% das rotas (exceto GET /health e o preflight OPTIONS do CORS) exigem token', async () => {
+  it('100% das rotas (exceto /health, /healthz, /readyz e o preflight OPTIONS do CORS) exigem token', async () => {
     const { app } = criar()
     await app.ready()
-    expect(app.rotas).toEqual(expect.arrayContaining(['GET /health', 'GET /v1/feed', 'GET /v1/certidoes', 'PUT /v1/certidoes/:certidaoId/renovacao', 'GET /v1/perfil']))
+    expect(app.rotas).toEqual(expect.arrayContaining(['GET /health', 'GET /healthz', 'GET /readyz', 'GET /v1/feed', 'GET /v1/certidoes', 'PUT /v1/certidoes/:certidaoId/renovacao', 'GET /v1/perfil']))
     for (const rota of app.rotas) {
       // `OPTIONS *` é o preflight do CORS (plugin @fastify/cors): responde antes da autenticação, sem dados (ver cors.test.ts).
       if (rota === 'OPTIONS *') continue
       const [metodo, caminho] = rota.split(' ') as [string, string]
       const url = caminho.replace(/:[A-Za-z]+/g, 'x')
       const r = await app.inject({ method: metodo as 'GET', url })
-      if (rota === 'GET /health') expect(r.statusCode).toBe(200)
+      if (['GET /health', 'GET /healthz', 'GET /readyz'].includes(rota)) expect(r.statusCode, rota).toBe(200)
       else expect(r.statusCode, rota).toBe(401)
     }
   })

@@ -1,0 +1,50 @@
+{
+  "data": [
+    {
+      "numeroControlePNCP": "00394460000141-1-000321/2026",
+      "numeroCompra": "45/2026",
+      "anoCompra": 2026,
+      "processo": "23106.000123/2026-11",
+      "tipoInstrumentoConvocatorioId": 1,
+      "tipoInstrumentoConvocatorioNome": "Edital",
+      "modalidadeId": 6,
+      "modalidadeNome": "Pregão - Eletrônico",
+      "modoDisputaId": 1,
+      "modoDisputaNome": "Aberto",
+      "situacaoCompraId": 1,
+      "situacaoCompraNome": "Divulgada no PNCP",
+      "objetoCompra": "Aquisição de   notebooks\npara laboratórios de informática",
+      "informacaoComplementar": "Garantia mínima de 36 meses.",
+      "srp": false,
+      "amparoLegal": { "codigo": 1, "nome": "Lei 14.133/2021, Art. 28, I", "descricao": "Pregão" },
+      "valorTotalEstimado": 180000.5,
+      "valorTotalHomologado": null,
+      "dataAberturaProposta": "2026-11-02T08:00:00",
+      "dataEncerramentoProposta": "2026-11-20T09:00:00",
+      "dataPublicacaoPncp": "2026-11-02",
+      "dataInclusao": "2026-11-02T10:15:22",
+      "dataAtualizacao": "2026-11-02T10:15:22",
+      "sequencialCompra": 321,
+      "orgaoEntidade": { "cnpj": "00394460000141", "razaoSocial": "Universidade de Brasília", "poderId": "E", "esferaId": "F" },
+      "unidadeOrgao": { "codigoUnidade": "154040", "nomeUnidade": "Decanato de Administração", "codigoIbge": 5300108, "municipioNome": "Brasília", "ufSigla": "DF", "ufNome": "Distrito Federal" },
+      "usuarioNome": "Compras.gov.br",
+      "linkSistemaOrigem": "https://www.gov.br/compras/pt-br"
+    },
+    {
+      "numeroControlePNCP": "01612092000123-1-000077/2026",
+      "modalidadeId": 6,
+      "objetoCompra": "Contratação de serviços de TI com fornecimento de equipamentos",
+      "informacaoComplementar": null,
+      "valorTotalEstimado": 0,
+      "dataEncerramentoProposta": "2026-12-05T10:30:00",
+      "dataPublicacaoPncp": "2026-11-01",
+      "orgaoEntidade": { "razaoSocial": "Prefeitura de Goiânia" },
+      "unidadeOrgao": { "nomeUnidade": "Secretaria de Administração", "municipioNome": "Goiânia", "ufSigla": "GO" }
+    }
+  ],
+  "totalRegistros": 3,
+  "totalPaginas": 2,
+  "numeroPagina": 1,
+  "paginasRestantes": 1,
+  "empty": false
+}
