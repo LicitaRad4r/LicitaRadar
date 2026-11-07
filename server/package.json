@@ -15,7 +15,7 @@
     "test:cov": "vitest run tests/unit tests/contract --coverage"
   },
   "dependencies": {
-    "fastify": "^5.12.5",
+    "fastify": "^5.12.8",
     "zod": "^4.6.5"
   },
   "devDependencies": {
