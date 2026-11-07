@@ -7,17 +7,14 @@ import {
   signOut,
   type User,
 } from 'firebase/auth'
+import { lerConfigFirebase } from './configFirebase'
 import { ErroDeLogin, type Papel, type ProvedorSessao, type Usuario } from './sessao'
 
 /**
  * Firebase no front: só Auth. Os dados vêm sempre da API
  * (as regras do Firestore bloqueiam leitura direta pelo navegador).
  */
-const app = initializeApp({
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'demo-api-key',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || undefined,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'demo-licitaradar',
-})
+const app = initializeApp(lerConfigFirebase(import.meta.env))
 
 const auth = getAuth(app)
 
@@ -46,11 +43,24 @@ function mensagemDeLogin(erro: unknown) {
 
 export const sessaoFirebase: ProvedorSessao = {
   // onIdTokenChanged também avisa quando o token é renovado, e assim empresa e papel novos aparecem na tela.
-  observar: (aoMudar) =>
-    onIdTokenChanged(auth, (user) => {
+  observar(aoMudar) {
+    // Só vale a resposta do aviso mais recente: uma atrasada não pode trazer de volta quem já saiu.
+    let ultimoAviso = 0
+    const parar = onIdTokenChanged(auth, (user) => {
+      const aviso = ++ultimoAviso
       if (!user) return aoMudar(null)
-      void paraUsuario(user).then(aoMudar)
-    }),
+      void paraUsuario(user)
+        // Sem conseguir ler o token, trata como sem sessão: leva ao login em vez de ficar carregando para sempre.
+        .catch(() => null)
+        .then((usuario) => {
+          if (aviso === ultimoAviso) aoMudar(usuario)
+        })
+    })
+    return () => {
+      ultimoAviso++
+      parar()
+    }
+  },
   async entrar(email, senha) {
     try {
       const { user } = await signInWithEmailAndPassword(auth, email, senha)

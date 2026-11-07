@@ -94,6 +94,8 @@ Quando o back estiver pronto, basta `VITE_API_MOCK=false`.
 A sessão fica em `lib/sessao.ts`. Com a API real ela usa o Firebase Auth (`lib/firebase.ts`); com a API
 simulada, um login falso com os mesmos usuários do seed do back (`mocks/sessao.ts`, senha `senha-local-123`).
 
+* Com a API real e fora do emulador, `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN` e
+  `VITE_FIREBASE_PROJECT_ID` são obrigatórias: se faltar alguma, o app abre uma página de erro que lista o que falta.
 * O token vai em `Authorization: Bearer` em toda chamada (`services/http.ts`).
 * Sem sessão, qualquer página leva ao `/login`, e depois de entrar a pessoa volta para onde estava.
 * **Tratamento central:** o cliente HTTP avisa todo 401 e todo 403 `ACESSO_NEGADO`, venha de qual tela vier.
