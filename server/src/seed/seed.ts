@@ -2,8 +2,8 @@
  * Dados locais para o emulador (card #24): duas empresas com perfis diferentes, usuários com
  * claims, o Golden Set de editais e o score de cada par empresa × edital (a API só lê).
  *
- * Uso (com o emulador no ar): `npm run seed`
- * As senhas abaixo valem só para o emulador local.
+ * Uso, com o Compose no ar: `docker compose exec api npm run seed`
+ * (o container da API já aponta para os emuladores). As senhas abaixo valem só no emulador local.
  */
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
