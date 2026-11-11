@@ -7,83 +7,100 @@ import { expect, test, type Page } from '@playwright/test'
  */
 const API = process.env.API_URL ?? 'http://localhost:3333'
 const AUTH = process.env.AUTH_EMULATOR_URL ?? 'http://localhost:9099'
-const SENHA = 'senha-local-123'
+const SENHA = process.env.E2E_SENHA ?? 'senha-local-123'
+// Só contra o Firebase real (Render): chave web do projeto. Sem ela, o login vai para o emulador.
+const CHAVE_FIREBASE = process.env.FIREBASE_API_KEY
 const DECISOR_A = 'decisor.a@licitaradar.local'
 const ANALISTA_A = 'analista.a@licitaradar.local'
 const DECISOR_B = 'decisor.b@licitaradar.local'
-
+ 
 async function entrar(page: Page, email: string, senha = SENHA) {
   await page.goto('/')
   await page.getByLabel('E-mail').fill(email)
   await page.getByLabel('Senha').fill(senha)
   await page.getByRole('button', { name: 'Entrar' }).click()
 }
-
+ 
 async function idToken(request: import('@playwright/test').APIRequestContext, email: string) {
-  const r = await request.post(`${AUTH}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key`, {
+  const url = CHAVE_FIREBASE
+    ? `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${CHAVE_FIREBASE}`
+    : `${AUTH}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key`
+  const r = await request.post(url, {
     data: { email, password: SENHA, returnSecureToken: true },
   })
-  expect(r.ok(), 'login no emulador de Auth').toBeTruthy()
+  expect(r.ok(), 'login no Auth (emulador ou Firebase real)').toBeTruthy()
   return (await r.json()).idToken as string
 }
-
+ 
 test.describe('API real: segurança (CT-SEG)', () => {
-  test('E2E-01 sem token e com token adulterado → 401 NAO_AUTENTICADO (CT-SEG-001/002)', async ({ request }) => {
+  test('@seguranca E2E-01 sem token e com token adulterado → 401 NAO_AUTENTICADO (CT-SEG-001/002)', async ({ request }) => {
     const sem = await request.get(`${API}/v1/feed`)
     expect(sem.status()).toBe(401)
     expect(await sem.json()).toMatchObject({ codigo: 'NAO_AUTENTICADO' })
-
+ 
     const token = await idToken(request, DECISOR_A)
     const adulterado = await request.get(`${API}/v1/feed`, { headers: { Authorization: `Bearer ${token.slice(0, -4)}xxxx` } })
     expect(adulterado.status()).toBe(401)
   })
-
-  test('E2E-02 analista não acessa certidões → 403 ACESSO_NEGADO; decisor acessa → 200 (CT-SEG-005/006)', async ({ request }) => {
+ 
+  test('@seguranca E2E-02 analista não acessa certidões → 403 ACESSO_NEGADO; decisor acessa → 200 (CT-SEG-005/006)', async ({ request }) => {
     const analista = await request.get(`${API}/v1/certidoes`, { headers: { Authorization: `Bearer ${await idToken(request, ANALISTA_A)}` } })
     expect(analista.status()).toBe(403)
     expect(await analista.json()).toMatchObject({ codigo: 'ACESSO_NEGADO' })
-
+ 
     const decisor = await request.get(`${API}/v1/certidoes`, { headers: { Authorization: `Bearer ${await idToken(request, DECISOR_A)}` } })
     expect(decisor.status()).toBe(200)
   })
-
-  test('E2E-03 isolamento: empresa A não lê dados da B e o feed de cada uma é o seu (CT-SEG-007..009)', async ({ request }) => {
+ 
+  test('@seguranca E2E-03 isolamento: empresa A não lê dados da B e o feed de cada uma é o seu (CT-SEG-007..009)', async ({ request }) => {
     const hA = { Authorization: `Bearer ${await idToken(request, DECISOR_A)}` }
     const hB = { Authorization: `Bearer ${await idToken(request, DECISOR_B)}` }
-
+ 
     const forjado = await request.get(`${API}/v1/feed?empresaId=emp-b`, { headers: hA })
     expect(forjado.status()).toBe(403)
-
+ 
     const feedA = (await (await request.get(`${API}/v1/feed`, { headers: hA })).json()).itens as { id: string; score: number }[]
     const feedB = (await (await request.get(`${API}/v1/feed`, { headers: hB })).json()).itens as { id: string; score: number }[]
     expect(feedA.length).toBeGreaterThan(0)
     expect(feedB.length).toBeGreaterThan(0)
     expect(feedA[0]).not.toEqual(feedB[0]) // perfis diferentes → o topo do ranking difere
+ 
+    // Nenhuma rota devolve dado da outra empresa: as certidões de cada uma têm só ids da própria.
+    const certA = (await (await request.get(`${API}/v1/certidoes`, { headers: hA })).json()) as { itens?: { id: string }[] } | { id: string }[]
+    const certB = (await (await request.get(`${API}/v1/certidoes`, { headers: hB })).json()) as { itens?: { id: string }[] } | { id: string }[]
+    const ids = (r: typeof certA) => (Array.isArray(r) ? r : (r.itens ?? [])).map((c) => c.id)
+    expect(ids(certA).some((id) => id.startsWith('cert-b-'))).toBe(false)
+    expect(ids(certB).some((id) => id.startsWith('cert-a-'))).toBe(false)
   })
 })
-
+ 
 test.describe('API real: saúde e job de ingestão (PR #25)', () => {
-  test('E2E-11 /healthz e /readyz são públicos, respondem 200 e não trazem dados', async ({ request }) => {
+  test('@seguranca E2E-11 /healthz e /readyz são públicos, respondem 200 e não trazem dados', async ({ request }) => {
     for (const rota of ['/healthz', '/readyz']) {
       const r = await request.get(`${API}${rota}`)
       expect(r.status(), rota).toBe(200)
       expect(JSON.stringify(await r.json())).not.toMatch(/empresa|edital|certid|token/i)
     }
   })
-
-  test('E2E-12 o job de ingestão recusa sem token e com token de usuário do Firebase; o token do usuário não vira token do job', async ({ request }) => {
+ 
+  test('@seguranca E2E-12 o job de ingestão recusa sem token e com token de usuário do Firebase; o token do usuário não vira token do job', async ({ request }) => {
     const sem = await request.post(`${API}/jobs/ingestao-pncp`)
     expect(sem.status()).toBe(401)
-
+ 
     const token = await idToken(request, DECISOR_A)
     const comUsuario = await request.post(`${API}/jobs/ingestao-pncp`, { headers: { Authorization: `Bearer ${token}` } })
     expect(comUsuario.status()).toBe(401)
-
+ 
+    // Token do job errado também é recusado. Nunca use o INGEST_JOB_TOKEN verdadeiro aqui: dispararia uma ingestão real.
+    const errado = await request.post(`${API}/jobs/ingestao-pncp`, { headers: { Authorization: 'Bearer token-do-job-errado' } })
+    expect(errado.status()).toBe(401)
+ 
     // GET na rota do job também não executa nada.
     const get = await request.get(`${API}/jobs/ingestao-pncp`, { headers: { Authorization: `Bearer ${token}` } })
     expect([401, 404]).toContain(get.status())
   })
 })
+
 
 test.describe('API real: jornadas pela tela', () => {
   test('E2E-04 sem sessão a tela leva ao login; senha errada mostra o erro e continua no login (US02)', async ({ page }) => {
