@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { API_URL } from '@/api/config'
+import { API_URL } from '@/services/config'
 import { servidor } from '@/mocks/servidor'
 import { rotas } from '@/routes/rotas'
 import { renderizar } from '@/testes/utils'
@@ -19,16 +19,17 @@ describe('Feed', () => {
   it('lista os 10 primeiros editais do mais para o menos aderente, com a faixa visível', async () => {
     abrirFeed()
 
-    expect(screen.getByRole('status', { name: 'Carregando editais' })).toBeInTheDocument()
+    expect(screen.getByText('Carregando oportunidades')).toBeVisible()
     await screen.findAllByRole('article')
 
     expect(editais()).toHaveLength(10)
     const notas = screen
-      .getAllByRole('img', { name: /^Aderência/ })
+      .getAllByRole('img', { name: /^Nota \d+ de 100/ })
       .map((anel) => Number(anel.getAttribute('aria-label')!.match(/\d+/)![0]))
     expect(notas).toEqual([...notas].sort((a, b) => b - a))
-    expect(within(editais()[0]).getByText('Alta aderência')).toBeInTheDocument()
-    expect(screen.getAllByText('Média aderência').length).toBeGreaterThan(0)
+    // Selo com a nota e o texto da faixa, não só cor.
+    expect(within(editais()[0]).getByRole('img', { name: 'Nota 94 de 100, aderência alta' })).toHaveTextContent('94Alta')
+    expect(screen.getAllByRole('img', { name: /aderência média$/ }).length).toBeGreaterThan(0)
     expect(within(editais()[0]).getByRole('heading')).toHaveTextContent('Aquisição de notebooks e monitores')
   })
 
@@ -58,7 +59,7 @@ describe('Feed', () => {
       'Remover filtro GO',
     ])
     await waitFor(() =>
-      expect(editais().every((e) => /, (DF|GO)$/.test(e.querySelector('span.text-sm')!.textContent!))).toBe(true),
+      expect(editais().every((e) => within(e).queryByText(/, (DF|GO)$/))).toBe(true),
     )
 
     await userEvent.click(within(ativas).getByRole('button', { name: 'Remover filtro DF' }))
@@ -73,7 +74,7 @@ describe('Feed', () => {
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Modalidade' }), 'concorrencia')
 
     expect(router.state.location.search).toBe('?modalidade=concorrencia')
-    await waitFor(() => expect(editais().every((e) => within(e).queryByText('Concorrência'))).toBe(true))
+    await waitFor(() => expect(editais().every((e) => within(e).queryByText(/^Concorrência,/))).toBe(true))
   })
 
   it('filtra por faixa de valor e avisa quando o mínimo passa do máximo', async () => {
@@ -120,7 +121,7 @@ describe('Feed', () => {
 
   it.each([
     ['sem_editais', 0, 'Ainda não há editais ingeridos'],
-    ['todos_descartados', 24, 'Nenhum edital combina com o seu perfil'],
+    ['todos_descartados', 24, 'Nenhum edital combina com o perfil da sua empresa'],
   ] as const)('lista vazia por %s: mostra a mensagem certa, sem Limpar filtros', async (motivoVazio, totalIngeridos, mensagem) => {
     servidor.use(
       http.get(`${API_URL}/v1/feed`, () =>
@@ -137,7 +138,7 @@ describe('Feed', () => {
     abrirFeed('/?page=3')
     await screen.findAllByRole('article')
 
-    expect(screen.getAllByText('Baixa aderência').length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('img', { name: /aderência baixa$/ }).length).toBeGreaterThan(0)
   })
 
   it('mostra o erro com opção de tentar de novo', async () => {
@@ -149,8 +150,9 @@ describe('Feed', () => {
     abrirFeed()
 
     const alerta = await screen.findByRole('alert')
-    expect(alerta).toHaveTextContent('Não foi possível carregar os editais')
-    expect(within(alerta).getByRole('button', { name: 'Tentar de novo' })).toBeInTheDocument()
+    expect(alerta).toHaveTextContent('Não foi possível carregar as oportunidades')
+    expect(screen.queryByText(/Nenhum edital/)).not.toBeInTheDocument()
+    expect(within(alerta).getByRole('button', { name: 'Tentar novamente' })).toBeInTheDocument()
   })
 
 })

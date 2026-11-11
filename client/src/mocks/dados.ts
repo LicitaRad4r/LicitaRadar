@@ -1,4 +1,4 @@
-import type { Certidao, EditalDetalhe, Faixa, Modalidade, Perfil, Uf } from '@/api/tipos'
+import type { CertidaoDTO, EditalDetalheDTO, Faixa, Modalidade, PerfilDTO, Uf } from '@/services/dto'
 import { diasEntre, hojeEmBrasilia, somarDias } from '@/lib/datas'
 
 /**
@@ -181,7 +181,7 @@ titulosExtras.forEach((titulo, i) => {
   })
 })
 
-const perfilInicial: Perfil = {
+const perfilInicial: PerfilDTO = {
   empresaId: 'empresa-demo',
   ufs: ['DF', 'GO'],
   termosChave: ['notebook', 'computador', 'suporte técnico', 'software'],
@@ -193,9 +193,9 @@ const perfilInicial: Perfil = {
 }
 
 /** Mesma regra do contrato: dias de calendário em Brasília até a validade. */
-export function calcularCertidao(dados: { id: string; nome: string; validade: string }): Certidao {
+export function calcularCertidao(dados: { id: string; nome: string; validade: string }): CertidaoDTO {
   const diasRestantes = diasEntre(hojeEmBrasilia(), dados.validade)
-  const status: Certidao['status'] =
+  const status: CertidaoDTO['status'] =
     diasRestantes < 0 ? 'vencida' : diasRestantes <= 15 ? 'urgente' : diasRestantes <= 30 ? 'atencao' : 'em_dia'
   return { ...dados, diasRestantes, status }
 }
@@ -220,7 +220,7 @@ export function reiniciarBanco() {
   banco = criarEstadoInicial()
 }
 
-export function editais(): EditalDetalhe[] {
+export function editais(): EditalDetalheDTO[] {
   return editaisBase.map(({ diasAtePrazo, diasDesdePublicacao, ...edital }) => ({
     ...edital,
     faixa: faixaDoScore(edital.score),

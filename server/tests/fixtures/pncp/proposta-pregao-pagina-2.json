@@ -1,0 +1,19 @@
+{
+  "data": [
+    {
+      "numeroControlePNCP": "92963560000160-1-000902/2026",
+      "modalidadeId": 6,
+      "objetoCompra": "Aquisição de impressoras",
+      "valorTotalEstimado": 75000,
+      "dataEncerramentoProposta": "2026-11-25T14:00:00-03:00",
+      "dataPublicacaoPncp": "2026-11-03T08:00:00",
+      "orgaoEntidade": { "razaoSocial": "Governo do Estado do Rio Grande do Sul" },
+      "unidadeOrgao": { "municipioNome": "Porto Alegre", "ufSigla": "RS" }
+    }
+  ],
+  "totalRegistros": 3,
+  "totalPaginas": 2,
+  "numeroPagina": 2,
+  "paginasRestantes": 0,
+  "empty": false
+}

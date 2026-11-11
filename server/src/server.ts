@@ -1,55 +1,54 @@
-import Fastify, { FastifyReply, FastifyRequest } from 'fastify'
-import { randomUUID } from 'node:crypto'
-import type { Writable } from 'node:stream'
+import { buildApp } from './app.js'
+import { definirClaimsFirebase, perfilRepoFirestore, verificarTokenFirebase } from './infra/firebase.js'
+import { armazenamentoLocal } from './infra/armazenamento-local.js'
+import { certidaoRepoFirestore } from './infra/firestore-certidoes.js'
+import { feedRepoFirestore } from './infra/firestore-feed.js'
+import { ingestaoRepoFirestore } from './infra/firestore-ingestao.js'
+import { verificarFirestore } from './infra/prontidao.js'
+import { criarFontePncp, opcoesPncpDoAmbiente } from './ingestao/cliente-pncp.js'
+import { fonteFixture } from './ingestao/fixtures.js'
+import { executarIngestao } from './ingestao/servico.js'
 
-export function buildApp(opts: { logStream?: Writable } = {}) {
-  const app = Fastify({
-    disableRequestLogging: true,
-    requestIdHeader: false,
-    requestIdLogLabel: 'requestId',
-    genReqId: () => randomUUID(),
-    logger: {
-      level: process.env.LOG_LEVEL ?? 'info',
-      stream: opts.logStream,
-      formatters: { level: (label) => ({ severity: label.toUpperCase() }) },
-      serializers: { 
-        req: () => ({}), 
-        res: () => ({}) 
-      },
-      redact: {
-        paths: ['*.email', '*.senha', '*.token', '*.authorization', 'req.headers', 'req.query', 'req.body'],
-        censor: '[REDACTED]',
-      },
-    },
-  })
+const port = Number(process.env.PORT ?? 3333)
 
-  app.addHook('onSend', async (request, reply) => {
-    reply.header('x-request-id', request.id)
-  })
+/**
+ * Fonte da ingestão: `pncp` (padrão, API real) ou `fixtures` (demonstração, sem internet).
+ * Fixtures só gravam no emulador, a menos que INGEST_PERMITIR_FIXTURES=true (demo em ambiente real, de propósito).
+ */
+const fonte = process.env.INGEST_FONTE ?? 'pncp'
+if (fonte !== 'pncp' && fonte !== 'fixtures') throw new Error(`INGEST_FONTE inválida: ${fonte} (use pncp ou fixtures).`)
+if (fonte === 'fixtures' && !process.env.FIRESTORE_EMULATOR_HOST && process.env.INGEST_PERMITIR_FIXTURES !== 'true') {
+  throw new Error('INGEST_FONTE=fixtures fora do emulador exige INGEST_PERMITIR_FIXTURES=true.')
+}
 
-  app.addHook('onResponse', async (request, reply) => {
-    const status = reply.statusCode
-    if (status !== 401 && status !== 403) return
-    const payload = reply.raw.getHeader('x-error-code') ?? (reply as any).errorCodigo
-    request.log.warn(
-      {
-        evento: 'bloqueio_seguranca',
-        rota: request.routeOptions?.url ?? 'rota_desconhecida',
-        metodo: request.method,
-        status,
-        codigo: payload ?? (status === 401 ? 'NAO_AUTENTICADO' : 'ACESSO_NEGADO'),
-      },
-      'Acesso bloqueado',
-    )
-  })
+const corsOrigens = (process.env.CORS_ORIGENS ?? 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean)
 
-  app.get('/v1/feed', async (request: FastifyRequest, reply: FastifyReply) => {
-    const authHeader = request.headers.authorization
-    if (!authHeader) {
-      return reply.code(401).send({ codigo: 'NAO_AUTENTICADO', mensagem: 'Token ausente' })
-    }
-    return { status: 'sucesso', dados: [] }
-  })
+const app = buildApp({
+  corsOrigens,
+  verificarToken: verificarTokenFirebase,
+  definirClaims: definirClaimsFirebase,
+  perfis: perfilRepoFirestore(),
+  feed: feedRepoFirestore(),
+  certidoes: certidaoRepoFirestore(),
+  arquivos: armazenamentoLocal(),
+  tokenJob: process.env.INGEST_JOB_TOKEN,
+  prontidao: verificarFirestore,
+  ingestao: () =>
+    executarIngestao({
+      repo: ingestaoRepoFirestore(),
+      fonte:
+        fonte === 'fixtures'
+          ? fonteFixture
+          : criarFontePncp(opcoesPncpDoAmbiente()),
+    }),
+})
 
-  return app
+try {
+  await app.listen({ port, host: '0.0.0.0' })
+} catch (err) {
+  app.log.error(err)
+  process.exit(1)
 }

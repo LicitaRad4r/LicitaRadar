@@ -1,27 +1,40 @@
-import { StrictMode } from 'react'
+import { StrictMode, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
-import { configurarToken } from '@/api/client'
-import { API_MOCK } from '@/api/config'
+import { configurarToken } from '@/services/http'
+import { API_MOCK } from '@/services/config'
 import { Provedores } from '@/components/Provedores'
-import { obterTokenFirebase, renovarTokenFirebase } from '@/lib/firebase'
+import { configurarSessao, sessao } from '@/lib/sessao'
+import { ErroDeConfiguracao } from '@/lib/configFirebase'
+import { PaginaSemConfiguracao } from '@/features/acesso/PaginaSemConfiguracao'
+
+function desenhar(conteudo: ReactNode) {
+  createRoot(document.getElementById('root')!).render(<StrictMode>{conteudo}</StrictMode>)
+}
 
 async function iniciar() {
-  configurarToken(obterTokenFirebase, renovarTokenFirebase)
-
   if (API_MOCK) {
-    // Carregado só quando o mock está ligado, para não ir no build de produção.
-    const { worker } = await import('./mocks/browser')
+    // Carregados só quando o mock está ligado, para não irem no build de produção.
+    const [{ worker }, { criarSessaoMock }] = await Promise.all([import('./mocks/browser'), import('./mocks/sessao')])
     await worker.start({ onUnhandledFrame: 'bypass' })
+    configurarSessao(criarSessaoMock())
+  } else {
+    try {
+      const { sessaoFirebase } = await import('@/lib/firebase')
+      configurarSessao(sessaoFirebase)
+    } catch (erro) {
+      if (!(erro instanceof ErroDeConfiguracao)) throw erro
+      desenhar(<PaginaSemConfiguracao faltando={erro.faltando} />)
+      return
+    }
   }
+  configurarToken(sessao.token, sessao.renovar)
 
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <Provedores>
-        <App />
-      </Provedores>
-    </StrictMode>,
+  desenhar(
+    <Provedores>
+      <App />
+    </Provedores>,
   )
 }
 

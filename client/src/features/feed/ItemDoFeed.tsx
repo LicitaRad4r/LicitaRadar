@@ -1,20 +1,14 @@
-import type { Faixa, FeedItem } from '@/api/tipos'
-import { Badge } from '@/components/ui/badge'
+import type { FeedItemDTO } from '@/services/dto'
 import { diaEmBrasilia, diasEntre, hojeEmBrasilia } from '@/lib/datas'
 import { formatarDataCurta, formatarMoeda, textoPrazo } from '@/lib/formatar'
 import { cn } from '@/lib/utils'
-import { AnelDeScore } from './AnelDeScore'
-import { ROTULO_FAIXA, ROTULO_MODALIDADE } from './rotulos'
+import { ROTULO_MODALIDADE } from './rotulos'
+import { SeloDeScore } from './SeloDeScore'
 
 const PRAZO_URGENTE = 3
 
-const ESTILO_FAIXA: Record<Faixa, string> = {
-  alta: 'bg-radar-suave text-radar',
-  media: 'border border-radar/30 bg-transparent text-radar',
-  baixa: 'border border-border bg-transparent text-muted-foreground',
-}
-
-export function ItemDoFeed({ edital }: { edital: FeedItem }) {
+/** Card de um edital do feed: nota e faixa, órgão e local, objeto, prazo, valor, modalidade e publicação. */
+export function ItemDoFeed({ edital }: { edital: FeedItemDTO }) {
   // Dias até o prazo, contados em Brasília como no back.
   const dias = diasEntre(hojeEmBrasilia(), diaEmBrasilia(edital.prazo))
   const urgente = dias <= PRAZO_URGENTE
@@ -24,12 +18,13 @@ export function ItemDoFeed({ edital }: { edital: FeedItem }) {
   const valor = edital.valorEstimado != null ? formatarMoeda(edital.valorEstimado) : 'Valor não informado'
 
   return (
-    <article className="flex gap-4 py-5" aria-labelledby={`edital-${edital.id}`}>
-      <AnelDeScore score={edital.score} faixa={edital.faixa} />
-
-      <div className="min-w-0 flex-1 space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge className={ESTILO_FAIXA[edital.faixa]}>{ROTULO_FAIXA[edital.faixa]}</Badge>
+    <article
+      className="flex flex-col gap-4 rounded-xl border bg-card p-5 sm:flex-row sm:items-start"
+      aria-labelledby={`edital-${edital.id}`}
+    >
+      <div className="min-w-0 flex-1 space-y-2.5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <SeloDeScore score={edital.score} faixa={edital.faixa} />
           <span className="text-sm text-muted-foreground">
             {edital.orgao}
             {local && `, ${local}`}
@@ -40,23 +35,20 @@ export function ItemDoFeed({ edital }: { edital: FeedItem }) {
           {edital.titulo}
         </h2>
 
-        {/* No celular, prazo e valor ficam abaixo do título (no computador, na coluna da direita). */}
-        <p className="flex flex-wrap gap-x-3 text-sm sm:hidden">
-          <span className={cn('font-medium', urgente ? 'text-urgente' : 'text-foreground')}>{textoPrazo(dias)}</span>
-          <span className="tabular-nums text-muted-foreground">{valor}</span>
+        <p className="text-xs text-muted-foreground">
+          {ROTULO_MODALIDADE[edital.modalidade]}, publicado em {formatarDataCurta(edital.dataPublicacao)}
         </p>
       </div>
 
-      <dl className="hidden w-40 shrink-0 space-y-2 text-right text-sm sm:block">
+      <dl className="flex shrink-0 justify-between gap-6 border-t pt-3 text-sm sm:block sm:w-44 sm:space-y-3 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-5 sm:text-right">
         <div>
-          <dt className="sr-only">Prazo para proposta</dt>
+          <dt className="text-xs text-muted-foreground">Prazo para proposta</dt>
           <dd className={cn('font-medium', urgente ? 'text-urgente' : 'text-foreground')}>{textoPrazo(dias)}</dd>
           <dd className="text-xs text-muted-foreground">até {formatarDataCurta(edital.prazo)}</dd>
         </div>
-        <div>
-          <dt className="sr-only">Valor estimado</dt>
-          <dd className="tabular-nums">{valor}</dd>
-          <dd className="text-xs text-muted-foreground">{ROTULO_MODALIDADE[edital.modalidade]}</dd>
+        <div className="text-right">
+          <dt className="text-xs text-muted-foreground">Valor estimado</dt>
+          <dd className="font-medium tabular-nums">{valor}</dd>
         </div>
       </dl>
     </article>

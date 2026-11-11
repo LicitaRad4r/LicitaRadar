@@ -1,6 +1,6 @@
 import { delay, http, HttpResponse, type HttpResponseResolver } from 'msw'
-import { API_URL } from '@/api/config'
-import type { CodigoErroApi, EditalDetalhe, ErroApi, FeedItem, MotivoVazio, Perfil } from '@/api/tipos'
+import { API_URL } from '@/services/config'
+import type { CodigoErroApi, EditalDetalheDTO, ErroDTO, FeedItemDTO, MotivoVazio, PerfilDTO } from '@/services/dto'
 import { diaEmBrasilia, hojeEmBrasilia } from '@/lib/datas'
 import { banco, calcularCertidao, editais } from './dados'
 
@@ -15,7 +15,8 @@ import { banco, calcularCertidao, editais } from './dados'
  *   lento        respostas demoram 3 s (para ver o carregando)
  *   sem-login    toda chamada responde 401
  *   sem-empresa  rotas de negócio respondem 403 EMPRESA_NAO_CONFIGURADA
- * E simular o papel do usuário com ?papel=analista (certidões respondem 403 ACESSO_NEGADO).
+ * O papel vem da sessão simulada (entre como analista.a@licitaradar.local) ou de ?papel=analista:
+ * para o analista, as certidões respondem 403 ACESSO_NEGADO.
  */
 type Cenario = 'normal' | 'vazio' | 'descartados' | 'erro' | 'lento' | 'sem-login' | 'sem-empresa'
 
@@ -25,13 +26,17 @@ function parametroDaPagina(nome: string) {
 }
 
 const cenarioAtual = () => (parametroDaPagina('mock') as Cenario | null) ?? 'normal'
-const papelAtual = () => (parametroDaPagina('papel') === 'analista' ? 'analista' : 'decisor')
+/** Papel do usuário: pelo token da sessão simulada (`mock:analista`) ou por ?papel=analista na URL. */
+const papelAtual = (request: Request) =>
+  request.headers.get('authorization') === 'Bearer mock:analista' || parametroDaPagina('papel') === 'analista'
+    ? 'analista'
+    : 'decisor'
 
 const url = (caminho: string) => `${API_URL}${caminho}`
 
 let contador = 0
-function erro(status: number, codigo: CodigoErroApi, mensagem: string, detalhes?: ErroApi['detalhes']) {
-  const corpo: ErroApi = { codigo, mensagem, requestId: `mock-${++contador}`, ...(detalhes && { detalhes }) }
+function erro(status: number, codigo: CodigoErroApi, mensagem: string, detalhes?: ErroDTO['detalhes']) {
+  const corpo: ErroDTO = { codigo, mensagem, requestId: `mock-${++contador}`, ...(detalhes && { detalhes }) }
   return HttpResponse.json(corpo, { status })
 }
 
@@ -58,7 +63,9 @@ function rota(resolver: HttpResponseResolver, { negocio = true } = {}): HttpResp
 
 /** Só o decisor acessa certidões (RF03). */
 function soDecisor(resolver: HttpResponseResolver): HttpResponseResolver {
-  return rota((info) => (papelAtual() === 'analista' ? erro(403, 'ACESSO_NEGADO', 'Acesso negado.') : resolver(info)))
+  return rota((info) =>
+    papelAtual(info.request) === 'analista' ? erro(403, 'ACESSO_NEGADO', 'Acesso negado.') : resolver(info),
+  )
 }
 
 function paginacao(params: URLSearchParams) {
@@ -68,7 +75,7 @@ function paginacao(params: URLSearchParams) {
 }
 
 /** Ordem do contrato: score desc, prazo mais próximo, publicação mais recente, id. */
-function comparar(a: FeedItem, b: FeedItem) {
+function comparar(a: FeedItemDTO, b: FeedItemDTO) {
   return (
     b.score - a.score ||
     a.prazo.localeCompare(b.prazo) ||
@@ -88,7 +95,7 @@ function normalizar(texto: string) {
     .join(' ')
 }
 
-function filtrarFeed(todos: EditalDetalhe[], params: URLSearchParams) {
+function filtrarFeed(todos: EditalDetalheDTO[], params: URLSearchParams) {
   const q = params.get('q')
   const ufs = params.getAll('uf').flatMap((uf) => uf.split(','))
   const municipio = params.get('municipio')
@@ -130,7 +137,7 @@ export const handlers = [
     rota(
       () =>
         HttpResponse.json(
-          cenarioAtual() === 'sem-empresa' ? ({ empresaId: null, ufs: [], termosChave: [] } satisfies Perfil) : banco.perfil,
+          cenarioAtual() === 'sem-empresa' ? ({ empresaId: null, ufs: [], termosChave: [] } satisfies PerfilDTO) : banco.perfil,
         ),
       { negocio: false },
     ),
@@ -139,7 +146,7 @@ export const handlers = [
     url('/v1/perfil'),
     rota(
       async ({ request }) => {
-        const perfil = (await request.json()) as Perfil
+        const perfil = (await request.json()) as PerfilDTO
         if (perfil.valorMinimo != null && perfil.valorMaximo != null && perfil.valorMinimo > perfil.valorMaximo) {
           return validacao('valorMaximo', 'Deve ser maior que o valor mínimo.')
         }

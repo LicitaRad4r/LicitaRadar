@@ -1,0 +1,48 @@
+# Configuração (Settings > Secrets and variables > Actions > Variables):
+#   WEB_URL  = https://<projeto>.web.app
+#   API_URL  = https://<servico>.onrender.com
+
+# Se uma verificação falhar, o job fica vermelho e o GitHub avisa por e-mail
+# (Settings do usuário > Notifications > Actions).
+
+name: Smoke test
+ 
+on:
+  # Depois que o workflow de deploy terminar na main. Ajuste o nome se for outro.
+  workflow_run:
+    workflows: ["Deploy"]
+    types: [completed]
+    branches: [main]
+  # Teste manual; as URLs podem ser trocadas (ex.: URL errada de propósito para ver o job ficar vermelho).
+  workflow_dispatch:
+    inputs:
+      web_url:
+        description: "URL do front (vazio = variável WEB_URL)"
+        required: false
+      api_url:
+        description: "URL da API (vazio = variável API_URL)"
+        required: false
+  # Também pode ser chamado como último passo do próprio workflow de deploy.
+  workflow_call:
+ 
+concurrency:
+  group: smoke-test
+  cancel-in-progress: false
+ 
+jobs:
+  smoke:
+    name: smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Só roda se o deploy deu certo (para workflow_run); nos outros gatilhos sempre roda.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - name: Verificar front e API
+        env:
+          WEB_URL: ${{ inputs.web_url || vars.WEB_URL }}
+          API_URL: ${{ inputs.api_url || vars.API_URL }}
+        run: scripts/smoke-test.sh
+ 

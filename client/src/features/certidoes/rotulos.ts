@@ -1,4 +1,4 @@
-import type { CertidaoStatus } from '@/api/tipos'
+import type { CertidaoStatus } from '@/services/dto'
 
 /** Faixas do contrato v0.3: vencida (menos de 0 dias), urgente (0 a 15), atenção (16 a 30), em dia (31 ou mais). */
 export const ROTULO_STATUS: Record<CertidaoStatus, string> = {

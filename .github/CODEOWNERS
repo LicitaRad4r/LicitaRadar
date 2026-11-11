@@ -4,28 +4,30 @@
 #
 # Tech Lead: @lianeiv | PO: @mariajulia-senaa | DevOps: @GGdornelas
 # QA: @kauantarchetti | Frontend: @jpnunes2210 | Backend: @LuisFelipe311
+#
+# A PO (@mariajulia-senaa) entra em todas as regras para ser revisora em todo PR.
 
-# Padrão: Tech Lead
-*                       @lianeiv
+# Padrão: Tech Lead + PO
+*                       @lianeiv @mariajulia-senaa
 
 # Frontend
-/client/                @jpnunes2210 @lianeiv
+/client/                @jpnunes2210 @lianeiv @mariajulia-senaa
 
 # Backend
-/server/                @LuisFelipe311 @lianeiv
+/server/                @LuisFelipe311 @lianeiv @mariajulia-senaa
 
 # Testes
-*.test.*                @kauantarchetti @lianeiv
-*.spec.*                @kauantarchetti @lianeiv
-/tests/                 @kauantarchetti @lianeiv
+*.test.*                @kauantarchetti @lianeiv @mariajulia-senaa
+*.spec.*                @kauantarchetti @lianeiv @mariajulia-senaa
+/tests/                 @kauantarchetti @lianeiv @mariajulia-senaa
 
 # Infra / DevOps
-/docker-compose.yml     @GGdornelas @lianeiv
-/infra/                 @GGdornelas @lianeiv
-/firebase.json          @GGdornelas @lianeiv
-/firestore.rules        @GGdornelas @lianeiv
-/.github/               @GGdornelas @lianeiv
-/.env.example           @GGdornelas @lianeiv
-**/Dockerfile           @GGdornelas @lianeiv
+/docker-compose.yml     @GGdornelas @lianeiv @mariajulia-senaa
+/infra/                 @GGdornelas @lianeiv @mariajulia-senaa
+/firebase.json          @GGdornelas @lianeiv @mariajulia-senaa
+/firestore.rules        @GGdornelas @lianeiv @mariajulia-senaa
+/.github/               @GGdornelas @lianeiv @mariajulia-senaa
+/.env.example           @GGdornelas @lianeiv @mariajulia-senaa
+**/Dockerfile           @GGdornelas @lianeiv @mariajulia-senaa
 
 # Documentação de produto e ADRs: repositório LicitaRad4r/documentation
