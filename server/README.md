@@ -13,7 +13,7 @@ docker compose up --build
 
 Saúde da API: http://localhost:3333/healthz (e `/readyz`, que também checa o Firestore).
 
-Usuários, editais e certidões locais não sobem com o Compose. Com a API real (`VITE_API_MOCK=false`), na raiz e com os containers no ar:
+Usuários, editais e certidões locais não sobem com o Compose. Na raiz, com os containers no ar:
 
 ```bash
 docker compose exec api npm run seed
