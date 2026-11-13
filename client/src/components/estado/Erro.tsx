@@ -1,6 +1,7 @@
 import { AlertTriangle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { mensagemAmigavel } from '@/services/erros'
+import { Link } from 'react-router'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { ApiError, mensagemAmigavel } from '@/services/erros'
 
 type Props = {
   erro: unknown
@@ -19,7 +20,11 @@ export function Erro({ erro, aoTentarDeNovo, titulo = 'Não foi possível carreg
       <AlertTriangle aria-hidden className="size-8 text-destructive" />
       <p className="font-medium">{titulo}</p>
       <p className="max-w-sm text-sm text-muted-foreground">{mensagemAmigavel(erro)}</p>
-      {aoTentarDeNovo && (
+      {erro instanceof ApiError && erro.codigo === 'EMPRESA_NAO_CONFIGURADA' ? (
+        <Link to="/perfil" className={buttonVariants({ className: 'mt-2' })}>
+          Configurar perfil
+        </Link>
+      ) : aoTentarDeNovo && (
         <Button variant="outline" className="mt-2" onClick={aoTentarDeNovo}>
           Tentar novamente
         </Button>
