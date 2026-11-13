@@ -69,7 +69,7 @@ function MenuDoUsuario({ usuario }: { usuario: Usuario }) {
         className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-white/80 outline-none hover:text-white focus-visible:ring-3 focus-visible:ring-white/50"
       >
         <LogOut aria-hidden className="size-4" />
-        Sair
+        <span className="sr-only sm:not-sr-only">Sair</span>
       </button>
     </div>
   )
@@ -100,17 +100,18 @@ export function Layout() {
     <div className="min-h-svh bg-background">
       <header className="bg-tinta text-white">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4">
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 sm:gap-6">
             <Link
               to="/"
               className="rounded-md text-lg font-semibold tracking-tight outline-none focus-visible:ring-3 focus-visible:ring-white/50"
             >
               LicitaRadar
             </Link>
-            <nav aria-label="Principal" className="flex items-center gap-1">
+            <nav aria-label="Principal" className="flex items-center gap-0.5 sm:gap-1">
               <ItemDoMenu para="/">Editais</ItemDoMenu>
               {/* Certidões são só do decisor (RF03). Para o analista, o link nem aparece. */}
               {usuario.papel !== 'analista' && <ItemDoMenu para="/certidoes">Certidões</ItemDoMenu>}
+              <ItemDoMenu para="/perfil">Perfil</ItemDoMenu>
             </nav>
           </div>
           <div className="flex items-center gap-4">
