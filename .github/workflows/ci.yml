@@ -30,7 +30,7 @@ jobs:
         run: gitleaks detect --source . --verbose --redact
 
   client:
-    name: client (lint + build)
+    name: client (lint + build + test)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -45,6 +45,50 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+      # Node 22: no 24 o FormData do jsdom quebra o teste de renovação de certidão.
+      - run: npm run test:unit
+
+  # Modo mock (playwright.config.ts). O spec da API real fica de fora: precisa do Compose e do seed.
+  playwright:
+    name: playwright (mock)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e -- --project=chromium
+
+  # Deny-all do Firestore. O teste fala com 127.0.0.1:8080 e carrega firestore.rules.
+  firestore-rules:
+    name: firestore rules (test:int)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - run: npm ci
+        working-directory: server
+      - name: Emulador e test:int
+        run: |
+          npx --yes firebase-tools@15.33.0 setup:emulators:firestore
+          npx --yes firebase-tools@15.33.0 --project demo-licitaradar emulators:exec --only firestore "npm run test:int --prefix server"
 
   server:
     name: server (lint + build)

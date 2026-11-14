@@ -69,12 +69,17 @@ Não siga guias antigos que pedem `npm install` no `client`/`server` + Firebase 
 
 ## Lint, build e testes (opcional — o mesmo que o CI)
 
-Só precisa de **Node.js 22+** na máquina se for rodar fora do Docker:
+Com **Node.js 22+** na máquina:
 
 ```bash
-cd client && npm ci && npm run lint && npm run build
+cd client && npm ci && npm run lint && npm run build && npm run test:unit
 cd ../server && npm ci && npm run lint && npm run build && npm run test:unit
 ```
+
+O CI também roda, em jobs separados:
+
+- Playwright em modo mock, só Chromium: `cd client && npx playwright install chromium && npm run test:e2e -- --project=chromium`
+- Regras do Firestore no emulador (Java 21). Na raiz, com as deps do `server` já instaladas: `npx firebase-tools@15.33.0 --project demo-licitaradar emulators:exec --only firestore "npm run test:int --prefix server"`
 
 ## Documentação
 
