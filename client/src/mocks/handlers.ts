@@ -1,8 +1,8 @@
 import { delay, http, HttpResponse, type HttpResponseResolver } from 'msw'
 import { API_URL } from '@/services/config'
-import type { CodigoErroApi, EditalDetalheDTO, ErroDTO, FeedItemDTO, MotivoVazio, PerfilDTO } from '@/services/dto'
+import type { CodigoErroApi, EditalDetalheDTO, ErroDTO, Etapa, FeedItemDTO, MotivoVazio, PerfilDTO, ResultadoAcompanhamento } from '@/services/dto'
 import { diaEmBrasilia, hojeEmBrasilia } from '@/lib/datas'
-import { banco, calcularCertidao, editais } from './dados'
+import { banco, calcularAcompanhamento, calcularCertidao, criarAcompanhamento, editais } from './dados'
 
 /**
  * Mock da API seguindo server/openapi.yaml (v0.3). Serve para desenvolver as telas
@@ -41,6 +41,24 @@ function erro(status: number, codigo: CodigoErroApi, mensagem: string, detalhes?
 }
 
 const naoEncontrado = () => erro(404, 'NAO_ENCONTRADO', 'Recurso não encontrado.')
+const regraDeNegocio = (mensagem: string) => erro(422, 'REGRA_DE_NEGOCIO', mensagem)
+
+const PROXIMAS_ETAPAS: Record<Etapa, Etapa[]> = {
+  interessado: ['preparando'],
+  preparando: ['enviado', 'interessado'],
+  enviado: ['resultado'],
+  resultado: [],
+}
+
+function listarAcompanhamentosOrdenados(etapa: Etapa | null) {
+  return banco.acompanhamentos
+    .filter((acompanhamento) => !etapa || acompanhamento.etapa === etapa)
+    .map(calcularAcompanhamento)
+    .sort(
+      (a, b) =>
+        Number(a.encerrado) - Number(b.encerrado) || Date.parse(a.prazo) - Date.parse(b.prazo) || a.id.localeCompare(b.id),
+    )
+}
 const validacao = (campo: string, mensagem: string) =>
   erro(400, 'VALIDACAO', 'Dados inválidos.', [{ campo, mensagem }])
 
@@ -236,6 +254,60 @@ export const handlers = [
       const renovada = calcularCertidao({ id: atual.id, nome: atual.nome, validade })
       banco.certidoes[indice] = renovada
       return HttpResponse.json(renovada)
+    }),
+  ),
+
+  // Acompanhamentos (Kanban, US20)
+  http.get(
+    url('/v1/acompanhamentos'),
+    rota(({ request }) => {
+      const params = new URL(request.url).searchParams
+      const { page, pageSize } = paginacao(params)
+      const lista = cenarioAtual() === 'vazio' ? [] : listarAcompanhamentosOrdenados(params.get('etapa') as Etapa | null)
+      return HttpResponse.json({ itens: lista.slice((page - 1) * pageSize, page * pageSize), page, pageSize, total: lista.length })
+    }),
+  ),
+  http.post(
+    url('/v1/acompanhamentos'),
+    rota(async ({ request }) => {
+      const { editalId } = (await request.json()) as { editalId: string }
+      const existente = banco.acompanhamentos.find((acompanhamento) => acompanhamento.editalId === editalId)
+      if (existente) return HttpResponse.json(calcularAcompanhamento(existente), { status: 200 })
+      const edital = editais().find((e) => e.id === editalId)
+      if (!edital) return naoEncontrado()
+      const novo = criarAcompanhamento(edital)
+      banco.acompanhamentos.push(novo)
+      return HttpResponse.json(calcularAcompanhamento(novo), { status: 201 })
+    }),
+  ),
+  http.patch(
+    url('/v1/acompanhamentos/:acompanhamentoId'),
+    rota(async ({ params, request }) => {
+      const pedido = (await request.json()) as { etapa: Etapa; resultado?: ResultadoAcompanhamento }
+      const atual = banco.acompanhamentos.find((acompanhamento) => acompanhamento.id === params.acompanhamentoId)
+      if (!atual) return naoEncontrado()
+      if (pedido.etapa === 'resultado' && !pedido.resultado) return validacao('resultado', 'Informe o resultado: venceu ou nao_venceu.')
+      if (!PROXIMAS_ETAPAS[atual.etapa].includes(pedido.etapa)) {
+        return regraDeNegocio(`Não é possível ir de ${atual.etapa} para ${pedido.etapa}.`)
+      }
+      Object.assign(atual, {
+        etapa: pedido.etapa,
+        resultado: pedido.etapa === 'resultado' ? pedido.resultado : null,
+        atualizadoEm: new Date().toISOString(),
+      })
+      return HttpResponse.json(calcularAcompanhamento(atual))
+    }),
+  ),
+  http.delete(
+    url('/v1/acompanhamentos/:acompanhamentoId'),
+    rota(({ params }) => {
+      const indice = banco.acompanhamentos.findIndex((acompanhamento) => acompanhamento.id === params.acompanhamentoId)
+      if (indice < 0) return naoEncontrado()
+      if (!['interessado', 'preparando'].includes(banco.acompanhamentos[indice].etapa)) {
+        return regraDeNegocio('Só é possível remover um acompanhamento em interessado ou preparando.')
+      }
+      banco.acompanhamentos.splice(indice, 1)
+      return new HttpResponse(null, { status: 204 })
     }),
   ),
 ]

@@ -1,4 +1,5 @@
 import type { RouteObject } from 'react-router'
+import { PaginaAcompanhamento } from '@/features/acompanhamento/PaginaAcompanhamento'
 import { PaginaAcessoNegado } from '@/features/acesso/PaginaAcessoNegado'
 import { PaginaLogin } from '@/features/acesso/PaginaLogin'
 import { PaginaDetalheEdital } from '@/features/editais/PaginaDetalheEdital'
@@ -19,6 +20,7 @@ export const rotas: RouteObject[] = [
       { index: true, element: <PaginaFeed /> },
       { path: 'editais/:editalId', element: <PaginaDetalheEdital /> },
       { path: 'perfil', element: <PaginaPerfil /> },
+      { path: 'acompanhamento', element: <PaginaAcompanhamento /> },
       { path: 'certidoes', element: <PaginaCertidoes /> },
       { path: 'acesso-negado', element: <PaginaAcessoNegado /> },
       { path: '*', element: <PaginaNaoEncontrada /> },

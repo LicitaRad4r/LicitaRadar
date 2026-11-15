@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router'
+import { BotaoAcompanhar } from '@/features/acompanhamento/BotaoAcompanhar'
 import type { EstadoDaRotaDoDetalhe } from '@/features/editais/PaginaDetalheEdital'
 import type { FeedItemDTO } from '@/services/dto'
 import { diaEmBrasilia, diasEntre, hojeEmBrasilia } from '@/lib/datas'
@@ -47,6 +48,8 @@ export function ItemDoFeed({ edital }: { edital: FeedItemDTO }) {
         <p className="text-xs text-muted-foreground">
           {ROTULO_MODALIDADE[edital.modalidade]}, publicado em {formatarDataCurta(edital.dataPublicacao)}
         </p>
+
+        <BotaoAcompanhar editalId={edital.id} tituloDoEdital={edital.titulo} className="relative z-10" />
       </div>
 
       <dl className="flex shrink-0 justify-between gap-6 border-t pt-3 text-sm sm:block sm:w-44 sm:space-y-3 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-5 sm:text-right">

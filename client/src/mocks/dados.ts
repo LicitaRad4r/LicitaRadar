@@ -1,5 +1,5 @@
-import type { CertidaoDTO, EditalDetalheDTO, Faixa, Modalidade, PerfilDTO, Uf } from '@/services/dto'
-import { diasEntre, hojeEmBrasilia, somarDias } from '@/lib/datas'
+import type { AcompanhamentoDTO, CertidaoDTO, EditalDetalheDTO, Etapa, Faixa, Modalidade, PerfilDTO, Uf } from '@/services/dto'
+import { diaEmBrasilia, diasEntre, hojeEmBrasilia, somarDias } from '@/lib/datas'
 
 /**
  * "Banco" em memória do mock, no formato do contrato v0.3. As ações (salvar perfil, renovar certidão)
@@ -210,7 +210,43 @@ function criarEstadoInicial() {
     { id: 'cert-estadual', nome: 'Certidão negativa do DF', validade: somarDias(hoje, 60) },
   ].map(calcularCertidao)
 
-  return { perfil: structuredClone(perfilInicial), certidoes }
+  const [primeiroEdital, segundoEdital] = editais()
+  const acompanhamentos = [
+    criarAcompanhamento(segundoEdital, 'preparando'),
+    criarAcompanhamento(primeiroEdital, 'interessado'),
+  ]
+
+  return { perfil: structuredClone(perfilInicial), certidoes, acompanhamentos }
+}
+
+export type AcompanhamentoDoMock = Omit<AcompanhamentoDTO, 'diasRestantes' | 'destaque' | 'encerrado'>
+
+export function criarAcompanhamento(edital: EditalDetalheDTO, etapa: Etapa = 'interessado'): AcompanhamentoDoMock {
+  const agora = new Date().toISOString()
+  return {
+    id: `acomp-${edital.id.replace(/\W+/g, '-')}`,
+    editalId: edital.id,
+    etapa,
+    resultado: null,
+    titulo: edital.titulo,
+    orgao: edital.orgao,
+    uf: edital.uf,
+    prazo: edital.prazo,
+    criadoEm: agora,
+    atualizadoEm: agora,
+  }
+}
+
+const DIAS_DE_DESTAQUE = 3
+
+export function calcularAcompanhamento(acompanhamento: AcompanhamentoDoMock): AcompanhamentoDTO {
+  const diasRestantes = diasEntre(hojeEmBrasilia(), diaEmBrasilia(acompanhamento.prazo))
+  return {
+    ...acompanhamento,
+    diasRestantes,
+    destaque: diasRestantes >= 0 && diasRestantes <= DIAS_DE_DESTAQUE,
+    encerrado: diasRestantes < 0 && (acompanhamento.etapa === 'interessado' || acompanhamento.etapa === 'preparando'),
+  }
 }
 
 export let banco = criarEstadoInicial()

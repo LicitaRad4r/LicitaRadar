@@ -21,6 +21,11 @@ export type EditalDetalheDTO = Schemas['EditalDetalhe']
 export type CertidaoDTO = Schemas['Certidao']
 export type CertidaoStatus = Schemas['CertidaoStatus']
 
+export type AcompanhamentoDTO = Schemas['Acompanhamento']
+export type AcompanhamentoPaginaDTO = Schemas['AcompanhamentoPagina']
+export type Etapa = Schemas['Etapa']
+export type ResultadoAcompanhamento = Schemas['ResultadoAcompanhamento']
+
 export type ErroDTO = Schemas['Erro']
 export type CodigoErroApi = ErroDTO['codigo']
 

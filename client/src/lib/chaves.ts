@@ -1,4 +1,4 @@
-import type { FiltrosFeedDTO } from '@/services/dto'
+import type { Etapa, FiltrosFeedDTO } from '@/services/dto'
 
 /**
  * Chaves do cache do TanStack Query. Centralizadas para que invalidar
@@ -13,4 +13,8 @@ export const chaves = {
   },
   edital: (id: string) => ['edital', id] as const,
   certidoes: ['certidoes'] as const,
+  acompanhamentos: {
+    todos: ['acompanhamentos'] as const,
+    daEtapa: (etapa: Etapa) => ['acompanhamentos', etapa] as const,
+  },
 }
