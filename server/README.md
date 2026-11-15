@@ -34,7 +34,29 @@ Convenções: rotas de negócio sob `/v1`, autenticadas com Bearer (ID token do 
 Todo acesso a dados passa pela API: o navegador nunca lê nem escreve direto no Firestore (regras deny-all). O usuário se identifica pelos claims `empresaId` e `role` do ID token.
 
 ## Saúde (`/healthz` e `/readyz`)
-Públicas, sem token e sem dados. `GET /healthz` diz que a API está de pé (use como *health check* da hospedagem). `GET /readyz` também consulta o Firestore e responde `503 {"status":"unavailable"}` se ele não responder em 3 s (o corpo nunca traz detalhes do erro). Ficam fora do contrato OpenAPI do front, assim como `/health`.
+Públicas, sem token e sem dados. Ficam fora do contrato OpenAPI do front, assim como `/health`.
+
+| Rota | O que diz | Firestore ok | Firestore fora do ar (ou sem credencial) |
+| ---- | --------- | ------------ | ---------------------------------------- |
+| `GET /healthz` | a API está de pé; não depende de nada e não lê o Firestore | `200 {"status":"ok"}` | `200 {"status":"ok"}` |
+| `GET /readyz` | a API está pronta: também consulta o Firestore | `200 {"status":"ready"}` | `503 {"status":"unavailable"}` (responde em até 3 s; o corpo nunca traz o motivo) |
+
+Custo: `/healthz` não lê nada; `/readyz` lê no máximo 1 documento de `editais` por chamada (um monitor a cada 5 min dá ~288 leituras por dia, bem abaixo da cota gratuita do Firestore).
+
+Para verificar na sua máquina (com o Compose no ar). Com o emulador parado, o `/readyz` passa a dar 503 e o `/healthz` continua 200:
+
+```bash
+curl -i http://localhost:3333/healthz
+curl -i http://localhost:3333/readyz
+docker compose stop firebase    # derruba só o Firestore
+curl -i http://localhost:3333/healthz   # segue 200
+curl -i http://localhost:3333/readyz    # 503
+docker compose start firebase
+```
+
+Na hospedagem (Render): configure o *Health Check Path* como `/healthz`. Use o `/readyz` só para monitorar (UptimeRobot), não como health check da plataforma: se o Firestore cair, o Render poderia reiniciar uma API que não tem defeito. O workflow `Smoke test` (`scripts/smoke-test.sh`) confere as duas rotas na URL pública.
+
+Testes: `tests/unit/ingestao.test.ts` (as rotas, com a dependência simulada) e `tests/unit/prontidao.test.ts` (o `verificarFirestore`: resposta, falha, timeout de 3 s e credencial inválida).
 
 ## Ingestão do PNCP
 O workflow `.github/workflows/ingestao-pncp.yml` chama `POST /jobs/ingestao-pncp` todo dia. A rota é **interna** (fora do contrato do front) e **não usa token do Firebase**: exige `Authorization: Bearer <INGEST_JOB_TOKEN>`, comparado em tempo constante. Sem `INGEST_JOB_TOKEN` no servidor, a rota recusa tudo (401). O token do job não abre nenhuma outra rota, e o token de usuário não abre esta.
