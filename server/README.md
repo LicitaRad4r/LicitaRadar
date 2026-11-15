@@ -90,3 +90,31 @@ No Windows/PowerShell, defina antes `$env:FIRESTORE_EMULATOR_HOST="127.0.0.1:808
 2. Variável de repositório `ENABLE_PNCP_INGEST=true`.
 3. Na API hospedada: `INGEST_JOB_TOKEN`, `FIREBASE_SERVICE_ACCOUNT_JSON`/credenciais do Admin SDK e `GCLOUD_PROJECT`.
 4. Teste manual: *Actions → Ingestão PNCP → Run workflow*. A resposta traz o resumo (recebidas, editais gravados, ignoradas, scores).
+
+## Acompanhamentos (Kanban, US20)
+Código em `src/acompanhamento` (regras, rotas, repositório) e `src/infra/firestore-acompanhamentos.ts`. Valem para `decisor` e `analista`; a empresa vem só do token.
+
+| Rota | O que faz | Respostas |
+|---|---|---|
+| `POST /v1/acompanhamentos` `{editalId}` | começa a acompanhar (etapa `interessado`) | 201 criado · 200 já existia (devolve o existente) · 404 edital · 400 |
+| `GET /v1/acompanhamentos?etapa=&page=&pageSize=` | lista paginada | 200 `{itens,page,pageSize,total}` · 400 |
+| `PATCH /v1/acompanhamentos/{id}` `{etapa, resultado?}` | muda de etapa | 200 · 400 · 403 outra empresa · 404 · 422 |
+| `DELETE /v1/acompanhamentos/{id}` | remove (só em `interessado`/`preparando`) | 204 · 403 · 404 · 422 |
+
+- **Etapas**: `interessado` → `preparando` → `enviado` → `resultado`. Uma por vez; a única volta é `preparando` → `interessado`. Qualquer outra transição (pular, voltar, repetir a etapa, mudar depois do resultado) é **422** `REGRA_DE_NEGOCIO`, sem alterar nada. `resultado` exige `venceu` ou `nao_venceu` (senão 400); nas outras etapas `resultado` é proibido.
+- **Ordem**: pelo prazo do edital (mais próximo primeiro, empate pelo id). Os `encerrados` (prazo passado e proposta ainda não enviada) vão para o fim. Depois de `enviado`, o prazo vencido não pesa.
+- **`destaque`**: prazo entre 0 e 3 dias de calendário no horário de Brasília. `diasRestantes` usa o mesmo cálculo das certidões.
+- **Dados do edital** (título, órgão, UF, prazo) são copiados na criação; o acompanhamento não depende de ler `editais` na listagem.
+- **Id**: hash de empresa + edital (opaco, não expõe a empresa). É ele que impede duplicar o acompanhamento, mesmo com duas chamadas ao mesmo tempo.
+- **Custo (Firestore)**: a listagem lê só a página pedida. O `total` vem de `count()` (agregação, 1 leitura a cada 1.000 documentos indexados) e os documentos antes da página entram como `offset` (também cobrados). O repositório não tem método que leia a coleção inteira.
+
+### Índices do Firestore
+`firestore.indexes.json` (na raiz) declara 3 índices compostos de `acompanhamentos`: `(empresaId, prazoEm)`, `(empresaId, fase, prazoEm)` e `(empresaId, etapa, prazoEm)`. **O emulador não exige índices**, então a falta deles só aparece em produção (erro `FAILED_PRECONDITION`). Antes de usar no Render: `firebase deploy --only firestore:indexes` (a construção leva alguns minutos).
+
+### Rodando e testando
+```
+docker compose exec api npm run seed        # inclui 2 acompanhamentos da Empresa A (golden-A e golden-E)
+npm run test:unit                           # regras e rotas, sem emulador
+npm run test:int                            # Firestore real do emulador (a partir de server/, com o emulador no ar)
+k6 run k6/carga.js                          # na raiz; mede também GET e PATCH de acompanhamentos
+```

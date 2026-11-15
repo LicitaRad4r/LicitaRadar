@@ -1,3 +1,4 @@
+import { novoAcompanhamento, type AcompanhamentoRegistro } from '../acompanhamento/modelo.js'
 import type { CertidaoRegistro } from '../certidoes/repositorio.js'
 import type { Edital, RegistroScore } from '../dominio/edital.js'
 import { diaBrasilia, somarDias, somarDiasUteis } from '../dominio/tempo.js'
@@ -82,5 +83,22 @@ export function certidoesGolden(agora: Date): CertidaoRegistro[] {
     cert('cert-a-mais30', 'emp-a', 'CNDT Trabalhista', 30),
     cert('cert-a-mais31', 'emp-a', 'Balanço Patrimonial', 31),
     cert('cert-b-mais10', 'emp-b', 'CND Federal', 10),
+  ]
+}
+
+/**
+ * Dois acompanhamentos da Empresa A (card #67): o golden-A em `interessado` (prazo em 9 dias úteis) e o golden-E em
+ * `preparando` (prazo em 2 dias úteis, o mais próximo; passa a vir primeiro na lista). O destaque depende do dia da
+ * semana em que o seed roda (2 dias úteis são de 2 a 4 dias de calendário).
+ */
+export function acompanhamentosGolden(agora: Date, editais: Edital[]): AcompanhamentoRegistro[] {
+  const edital = (id: string) => {
+    const e = editais.find((x) => x.id === id)
+    if (!e) throw new Error(`Edital do Golden Set não encontrado: ${id}`)
+    return e
+  }
+  return [
+    novoAcompanhamento('emp-a', edital('golden-A'), agora, 'interessado'),
+    novoAcompanhamento('emp-a', edital('golden-E'), agora, 'preparando'),
   ]
 }

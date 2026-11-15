@@ -146,6 +146,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/acompanhamentos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lista os acompanhamentos da empresa
+         * @description Ordenados pelo prazo do edital, do mais próximo para o mais distante (empate pelo id). Os `encerrados` (prazo passado, proposta ainda não enviada) vêm no fim. Paginada: lê só a página pedida.
+         */
+        get: operations["listarAcompanhamentos"];
+        put?: never;
+        /**
+         * Passa a acompanhar um edital
+         * @description Cria o acompanhamento na etapa `interessado`, com título, órgão, UF e prazo copiados do edital. Se a empresa já acompanha o edital, responde `200` com o acompanhamento existente e não cria outro. Edital inexistente responde `404`.
+         */
+        post: operations["criarAcompanhamento"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/acompanhamentos/{acompanhamentoId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove um acompanhamento
+         * @description Só nas etapas `interessado` e `preparando`. Em `enviado` ou `resultado` responde `422` `REGRA_DE_NEGOCIO`. Acompanhamento de outra empresa responde `403`.
+         */
+        delete: operations["removerAcompanhamento"];
+        options?: never;
+        head?: never;
+        /**
+         * Muda a etapa de um acompanhamento
+         * @description Avança uma etapa por vez (`interessado`, `preparando`, `enviado`, `resultado`); a única volta permitida é `preparando` para `interessado`. Pedir `resultado` sem `venceu`/`nao_venceu` é `400`. Transição inválida (pular etapa, voltar, mudar depois do resultado ou repetir a etapa atual) é `422` `REGRA_DE_NEGOCIO` e nada muda. Acompanhamento de outra empresa responde `403` sem dados.
+         */
+        patch: operations["moverAcompanhamento"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -161,7 +209,7 @@ export interface components {
              * @description Código estável para o frontend tratar.
              * @enum {string}
              */
-            codigo: "VALIDACAO" | "NAO_AUTENTICADO" | "EMPRESA_NAO_CONFIGURADA" | "NAO_ENCONTRADO" | "ACESSO_NEGADO" | "ERRO_INTERNO";
+            codigo: "VALIDACAO" | "NAO_AUTENTICADO" | "EMPRESA_NAO_CONFIGURADA" | "NAO_ENCONTRADO" | "ACESSO_NEGADO" | "REGRA_DE_NEGOCIO" | "ERRO_INTERNO";
             mensagem: string;
             detalhes?: {
                 campo: string;
@@ -254,6 +302,50 @@ export interface components {
             diasRestantes: number;
             status: components["schemas"]["CertidaoStatus"];
         };
+        /**
+         * @description Etapas do Kanban. Avança uma por vez; só volta de `preparando` para `interessado`.
+         * @enum {string}
+         */
+        Etapa: "interessado" | "preparando" | "enviado" | "resultado";
+        /**
+         * @description Obrigatório ao mover para `resultado`; proibido nas outras etapas.
+         * @enum {string}
+         */
+        ResultadoAcompanhamento: "venceu" | "nao_venceu";
+        Acompanhamento: {
+            /** @description Id opaco do acompanhamento. */
+            id: string;
+            editalId: string;
+            etapa: components["schemas"]["Etapa"];
+            /** @description Só vem preenchido na etapa `resultado`. */
+            resultado: components["schemas"]["ResultadoAcompanhamento"] | null;
+            /** @description Objeto do edital, copiado na criação. */
+            titulo: string;
+            orgao: string;
+            uf: components["schemas"]["Uf"];
+            /**
+             * Format: date-time
+             * @description Prazo do edital para envio de propostas, copiado na criação.
+             */
+            prazo: string;
+            /** @description Dias de calendário até o prazo, no horário de Brasília (negativo se já passou). */
+            diasRestantes: number;
+            /** @description Verdadeiro quando o prazo está entre 0 e 3 dias de calendário (Brasília). */
+            destaque: boolean;
+            /** @description Prazo passado com a proposta ainda não enviada (`interessado` ou `preparando`). */
+            encerrado: boolean;
+            /** Format: date-time */
+            criadoEm: string;
+            /** Format: date-time */
+            atualizadoEm: string;
+        };
+        AcompanhamentoPagina: {
+            itens: components["schemas"]["Acompanhamento"][];
+            page: number;
+            pageSize: number;
+            /** @description Acompanhamentos da empresa que combinam com o filtro de etapa. */
+            total: number;
+        };
     };
     responses: {
         /** @description Dados inválidos. */
@@ -283,6 +375,15 @@ export interface components {
                 "application/json": components["schemas"]["Erro"];
             };
         };
+        /** @description A regra de negócio não permite a operação (`codigo` REGRA_DE_NEGOCIO). Nada é alterado. */
+        RegraDeNegocio: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Erro"];
+            };
+        };
         /** @description Acesso recusado. `codigo` EMPRESA_NAO_CONFIGURADA: token sem `empresaId` ou `role` (configure o perfil em PUT /v1/perfil e renove o ID token). `codigo` ACESSO_NEGADO: o papel não permite a ação, o recurso é de outra empresa ou a query traz outra empresa. */
         SemEmpresa: {
             headers: {
@@ -299,6 +400,7 @@ export interface components {
         /** @description Número de controle do PNCP. Pode conter `/` (por exemplo `00394460000141-1-000123/2026`), então o cliente envia o valor codificado (`encodeURIComponent`) e o backend decodifica. */
         EditalId: string;
         CertidaoId: string;
+        AcompanhamentoId: string;
     };
     requestBodies: never;
     headers: never;
@@ -576,6 +678,131 @@ export interface operations {
             401: components["responses"]["NaoAutenticado"];
             403: components["responses"]["SemEmpresa"];
             404: components["responses"]["NaoEncontrado"];
+        };
+    };
+    listarAcompanhamentos: {
+        parameters: {
+            query?: {
+                etapa?: components["schemas"]["Etapa"];
+                page?: components["parameters"]["Pagina"];
+                pageSize?: components["parameters"]["Tamanho"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Uma página de acompanhamentos. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcompanhamentoPagina"];
+                };
+            };
+            400: components["responses"]["Validacao"];
+            401: components["responses"]["NaoAutenticado"];
+            403: components["responses"]["SemEmpresa"];
+        };
+    };
+    criarAcompanhamento: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Id do edital (o mesmo `id` do feed). */
+                    editalId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description A empresa já acompanhava este edital; devolve o acompanhamento existente. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Acompanhamento"];
+                };
+            };
+            /** @description Acompanhamento criado. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Acompanhamento"];
+                };
+            };
+            400: components["responses"]["Validacao"];
+            401: components["responses"]["NaoAutenticado"];
+            403: components["responses"]["SemEmpresa"];
+            404: components["responses"]["NaoEncontrado"];
+        };
+    };
+    removerAcompanhamento: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                acompanhamentoId: components["parameters"]["AcompanhamentoId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removido. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["NaoAutenticado"];
+            403: components["responses"]["SemEmpresa"];
+            404: components["responses"]["NaoEncontrado"];
+            422: components["responses"]["RegraDeNegocio"];
+        };
+    };
+    moverAcompanhamento: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                acompanhamentoId: components["parameters"]["AcompanhamentoId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    etapa: components["schemas"]["Etapa"];
+                    resultado?: components["schemas"]["ResultadoAcompanhamento"];
+                };
+            };
+        };
+        responses: {
+            /** @description Acompanhamento atualizado. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Acompanhamento"];
+                };
+            };
+            400: components["responses"]["Validacao"];
+            401: components["responses"]["NaoAutenticado"];
+            403: components["responses"]["SemEmpresa"];
+            404: components["responses"]["NaoEncontrado"];
+            422: components["responses"]["RegraDeNegocio"];
         };
     };
 }

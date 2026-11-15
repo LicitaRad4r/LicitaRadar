@@ -1,0 +1,31 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "acompanhamentos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "prazoEm", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "acompanhamentos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "fase", "order": "ASCENDING" },
+        { "fieldPath": "prazoEm", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "acompanhamentos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "etapa", "order": "ASCENDING" },
+        { "fieldPath": "prazoEm", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

@@ -64,6 +64,23 @@ describe('CORS', () => {
     expect(r.headers['access-control-allow-origin']).toBe('https://licitaradar.web.app')
   })
 
+  it('preflight de PATCH e DELETE em /v1/acompanhamentos libera os métodos para a origem do Firebase Hosting', async () => {
+    const app = criar(['https://licitaradar.web.app'])
+    for (const url of ['/v1/acompanhamentos/abc', '/acompanhamentos/abc']) {
+      for (const metodo of ['PATCH', 'DELETE']) {
+        const r = await preflight(app, url, 'https://licitaradar.web.app', metodo)
+        expect(r.statusCode, `${metodo} ${url}`).toBe(204)
+        expect(r.headers['access-control-allow-origin']).toBe('https://licitaradar.web.app')
+        expect(String(r.headers['access-control-allow-methods'])).toContain(metodo)
+      }
+    }
+    const lista = await preflight(app, '/v1/acompanhamentos', 'https://licitaradar.web.app', 'POST')
+    expect(lista.statusCode).toBe(204)
+    // Origem fora da lista continua sem permissão.
+    const fora = await preflight(app, '/v1/acompanhamentos/abc', 'http://site-malicioso.example', 'DELETE')
+    expect(fora.headers['access-control-allow-origin']).toBeUndefined()
+  })
+
   it('o CORS não abre as rotas: OPTIONS sem os cabeçalhos de preflight não devolve dados e o GET sem token continua 401', async () => {
     const app = criar()
     const r = await app.inject({ method: 'OPTIONS', url: '/v1/feed' })

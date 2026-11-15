@@ -13,7 +13,7 @@
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 import { iniciarFirebase } from '../infra/firebase.js'
-import { EMPRESAS, certidoesGolden, editaisGolden, scoresGolden } from './golden.js'
+import { EMPRESAS, acompanhamentosGolden, certidoesGolden, editaisGolden, scoresGolden } from './golden.js'
  
 const USUARIOS = [
   { uid: 'u-decisor-a', email: 'decisor.a@licitaradar.local', empresaId: 'emp-a', role: 'decisor' },
@@ -49,9 +49,11 @@ async function main() {
   for (const { id, ...resto } of editais) lote.set(db.collection('editais').doc(id), resto)
   for (const s of scores) lote.set(db.collection('scores').doc(`${s.empresaId}_${s.editalId}`), s)
   for (const { id, ...resto } of certidoes) lote.set(db.collection('certidoes').doc(id), resto)
+  const acompanhamentos = acompanhamentosGolden(agora, editais)
+  for (const { id, ...resto } of acompanhamentos) lote.set(db.collection('acompanhamentos').doc(id), resto)
   await lote.commit()
  
-  console.log(`Seed de produção ok: ${USUARIOS.length} usuários, ${EMPRESAS.length} empresas, ${editais.length} editais de teste, ${scores.length} scores, ${certidoes.length} certidões.`)
+  console.log(`Seed de produção ok: ${USUARIOS.length} usuários, ${EMPRESAS.length} empresas, ${editais.length} editais de teste, ${scores.length} scores, ${certidoes.length} certidões, ${acompanhamentos.length} acompanhamentos.`)
   console.log(`Logins: ${USUARIOS.map((u) => u.email).join(', ')} (a senha é a de SEED_PROD_SENHA)`)
 }
  

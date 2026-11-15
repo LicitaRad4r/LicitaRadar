@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto'
 import cors from '@fastify/cors'
 import multipart from '@fastify/multipart'
 import Fastify, { LogController, type FastifyInstance } from 'fastify'
+import { rotasAcompanhamentos } from './acompanhamento/rotas.js'
+import type { DependenciasAcompanhamento } from './acompanhamento/repositorio.js'
 import { rotasCertidoes } from './certidoes/rotas.js'
 import type { ArmazenamentoArquivos, CertidaoRepo } from './certidoes/repositorio.js'
 import { registrarAuth, type VerificarToken } from './auth.js'
@@ -22,6 +24,8 @@ export interface Dependencias {
   feed: FeedRepo
   certidoes: CertidaoRepo
   arquivos: ArmazenamentoArquivos
+  /** Kanban de acompanhamento (`/acompanhamentos`). Sem ele, as rotas não existem. */
+  acompanhamentos?: DependenciasAcompanhamento
   /** Relógio injetável (testes usam data fixa). */
   agora?: Relogio
   /** Token do job de ingestão (`INGEST_JOB_TOKEN`). Sem ele, `POST /jobs/ingestao-pncp` recusa tudo. */
@@ -74,7 +78,7 @@ export function buildApp(deps: Dependencias): FastifyInstance {
   // cabeçalhos de CORS para o front conseguir ler o erro. Os hooks rodam na ordem de registro.
   app.register(cors, {
     origin: deps.corsOrigens ?? ['http://localhost:5173'],
-    methods: ['GET', 'PUT', 'POST', 'OPTIONS'],
+    methods: ['GET', 'PUT', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Authorization', 'Content-Type'],
     maxAge: 600,
   })
@@ -102,6 +106,7 @@ export function buildApp(deps: Dependencias): FastifyInstance {
         rotasPerfil(rotasDoPrefixo, deps.perfis, deps.definirClaims)
         rotasFeed(rotasDoPrefixo, deps.feed)
         rotasCertidoes(rotasDoPrefixo, deps.certidoes, deps.arquivos, agora)
+        if (deps.acompanhamentos) rotasAcompanhamentos(rotasDoPrefixo, deps.acompanhamentos, agora)
       },
       { prefix },
     )

@@ -1,5 +1,6 @@
 import { buildApp } from './app.js'
 import { definirClaimsFirebase, perfilRepoFirestore, verificarTokenFirebase } from './infra/firebase.js'
+import { acompanhamentoRepoFirestore, editalLeituraFirestore } from './infra/firestore-acompanhamentos.js'
 import { armazenamentoLocal } from './infra/armazenamento-local.js'
 import { certidaoRepoFirestore } from './infra/firestore-certidoes.js'
 import { feedRepoFirestore } from './infra/firestore-feed.js'
@@ -34,6 +35,7 @@ const app = buildApp({
   feed: feedRepoFirestore(),
   certidoes: certidaoRepoFirestore(),
   arquivos: armazenamentoLocal(),
+  acompanhamentos: { repo: acompanhamentoRepoFirestore(), editais: editalLeituraFirestore() },
   tokenJob: process.env.INGEST_JOB_TOKEN,
   prontidao: verificarFirestore,
   ingestao: () =>

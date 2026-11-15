@@ -64,6 +64,13 @@ info:
     - `FeedItem` passa a exigir também `municipio`, `dataPublicacao` e `valorEstimado` (podem ser nulos), que a API sempre devolve.
     - Saíram as rotas sem base na documentação: feedback do edital, acompanhamento e etapas, alertas, e edição e exclusão de certidão. Se o grupo definir esses comportamentos, voltam com o formato definido.
 
+    Acompanhamento de editais (card #67, ainda na v0.3)
+    - Voltam as rotas do Kanban, agora com formato definido: `POST` e `GET /v1/acompanhamentos`, `PATCH` e `DELETE /v1/acompanhamentos/{acompanhamentoId}`. Valem para `decisor` e `analista` (a documentação não restringe).
+    - Etapas fixas: `interessado`, `preparando`, `enviado`, `resultado`. Só avança uma etapa por vez; a única volta é de `preparando` para `interessado`. `resultado` exige `venceu` ou `nao_venceu` e encerra o acompanhamento.
+    - `Erro.codigo` ganha `REGRA_DE_NEGOCIO` (422): transição de etapa inválida ou remoção fora de `interessado`/`preparando`.
+    - `Acompanhamento` traz `diasRestantes`, `destaque` (prazo em 0 a 3 dias de calendário em Brasília) e `encerrado` (prazo passado sem a proposta enviada), calculados no servidor.
+    - Os métodos `PATCH` e `DELETE` entram no CORS.
+
 servers:
   - url: http://localhost:3333
     description: Desenvolvimento local (docker compose)
@@ -78,6 +85,8 @@ tags:
     description: Detalhe de um edital (US12).
   - name: Certidões
     description: Controle de validade das certidões (só decisor).
+  - name: Acompanhamentos
+    description: Kanban de acompanhamento dos editais (US20).
 security:
   - bearerAuth: []
 paths:
@@ -372,6 +381,136 @@ paths:
           $ref: '#/components/responses/SemEmpresa'
         '404':
           $ref: '#/components/responses/NaoEncontrado'
+  /v1/acompanhamentos:
+    post:
+      operationId: criarAcompanhamento
+      tags: [Acompanhamentos]
+      summary: Passa a acompanhar um edital
+      description: >-
+        Cria o acompanhamento na etapa `interessado`, com título, órgão, UF e prazo copiados do edital.
+        Se a empresa já acompanha o edital, responde `200` com o acompanhamento existente e não cria outro.
+        Edital inexistente responde `404`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [editalId]
+              additionalProperties: false
+              properties:
+                editalId:
+                  type: string
+                  minLength: 1
+                  description: Id do edital (o mesmo `id` do feed).
+      responses:
+        '201':
+          description: Acompanhamento criado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Acompanhamento'
+        '200':
+          description: A empresa já acompanhava este edital; devolve o acompanhamento existente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Acompanhamento'
+        '400':
+          $ref: '#/components/responses/Validacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    get:
+      operationId: listarAcompanhamentos
+      tags: [Acompanhamentos]
+      summary: Lista os acompanhamentos da empresa
+      description: >-
+        Ordenados pelo prazo do edital, do mais próximo para o mais distante (empate pelo id). Os `encerrados`
+        (prazo passado, proposta ainda não enviada) vêm no fim. Paginada: lê só a página pedida.
+      parameters:
+        - name: etapa
+          in: query
+          schema:
+            $ref: '#/components/schemas/Etapa'
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Tamanho'
+      responses:
+        '200':
+          description: Uma página de acompanhamentos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcompanhamentoPagina'
+        '400':
+          $ref: '#/components/responses/Validacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
+  /v1/acompanhamentos/{acompanhamentoId}:
+    patch:
+      operationId: moverAcompanhamento
+      tags: [Acompanhamentos]
+      summary: Muda a etapa de um acompanhamento
+      description: >-
+        Avança uma etapa por vez (`interessado`, `preparando`, `enviado`, `resultado`); a única volta permitida é
+        `preparando` para `interessado`. Pedir `resultado` sem `venceu`/`nao_venceu` é `400`. Transição inválida
+        (pular etapa, voltar, mudar depois do resultado ou repetir a etapa atual) é `422` `REGRA_DE_NEGOCIO` e
+        nada muda. Acompanhamento de outra empresa responde `403` sem dados.
+      parameters:
+        - $ref: '#/components/parameters/AcompanhamentoId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [etapa]
+              additionalProperties: false
+              properties:
+                etapa:
+                  $ref: '#/components/schemas/Etapa'
+                resultado:
+                  $ref: '#/components/schemas/ResultadoAcompanhamento'
+      responses:
+        '200':
+          description: Acompanhamento atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Acompanhamento'
+        '400':
+          $ref: '#/components/responses/Validacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '422':
+          $ref: '#/components/responses/RegraDeNegocio'
+    delete:
+      operationId: removerAcompanhamento
+      tags: [Acompanhamentos]
+      summary: Remove um acompanhamento
+      description: Só nas etapas `interessado` e `preparando`. Em `enviado` ou `resultado` responde `422` `REGRA_DE_NEGOCIO`. Acompanhamento de outra empresa responde `403`.
+      parameters:
+        - $ref: '#/components/parameters/AcompanhamentoId'
+      responses:
+        '204':
+          description: Removido.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemEmpresa'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '422':
+          $ref: '#/components/responses/RegraDeNegocio'
 components:
   securitySchemes:
     bearerAuth:
@@ -410,6 +549,12 @@ components:
       required: true
       schema:
         type: string
+    AcompanhamentoId:
+      name: acompanhamentoId
+      in: path
+      required: true
+      schema:
+        type: string
   responses:
     Validacao:
       description: Dados inválidos.
@@ -425,6 +570,12 @@ components:
             $ref: '#/components/schemas/Erro'
     NaoEncontrado:
       description: Recurso inexistente.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    RegraDeNegocio:
+      description: A regra de negócio não permite a operação (`codigo` REGRA_DE_NEGOCIO). Nada é alterado.
       content:
         application/json:
           schema:
@@ -462,6 +613,7 @@ components:
             - EMPRESA_NAO_CONFIGURADA
             - NAO_ENCONTRADO
             - ACESSO_NEGADO
+            - REGRA_DE_NEGOCIO
             - ERRO_INTERNO
         mensagem:
           type: string
@@ -661,3 +813,87 @@ components:
           description: Dias de calendário até a validade, no horário de Brasília (negativo se já venceu).
         status:
           $ref: '#/components/schemas/CertidaoStatus'
+    Etapa:
+      type: string
+      enum:
+        - interessado
+        - preparando
+        - enviado
+        - resultado
+      description: Etapas do Kanban. Avança uma por vez; só volta de `preparando` para `interessado`.
+    ResultadoAcompanhamento:
+      type: string
+      enum:
+        - venceu
+        - nao_venceu
+      description: Obrigatório ao mover para `resultado`; proibido nas outras etapas.
+    Acompanhamento:
+      type: object
+      required:
+        - id
+        - editalId
+        - etapa
+        - resultado
+        - titulo
+        - orgao
+        - uf
+        - prazo
+        - diasRestantes
+        - destaque
+        - encerrado
+        - criadoEm
+        - atualizadoEm
+      properties:
+        id:
+          type: string
+          description: Id opaco do acompanhamento.
+        editalId:
+          type: string
+        etapa:
+          $ref: '#/components/schemas/Etapa'
+        resultado:
+          oneOf:
+            - $ref: '#/components/schemas/ResultadoAcompanhamento'
+            - type: 'null'
+          description: Só vem preenchido na etapa `resultado`.
+        titulo:
+          type: string
+          description: Objeto do edital, copiado na criação.
+        orgao:
+          type: string
+        uf:
+          $ref: '#/components/schemas/Uf'
+        prazo:
+          type: string
+          format: date-time
+          description: Prazo do edital para envio de propostas, copiado na criação.
+        diasRestantes:
+          type: integer
+          description: Dias de calendário até o prazo, no horário de Brasília (negativo se já passou).
+        destaque:
+          type: boolean
+          description: Verdadeiro quando o prazo está entre 0 e 3 dias de calendário (Brasília).
+        encerrado:
+          type: boolean
+          description: Prazo passado com a proposta ainda não enviada (`interessado` ou `preparando`).
+        criadoEm:
+          type: string
+          format: date-time
+        atualizadoEm:
+          type: string
+          format: date-time
+    AcompanhamentoPagina:
+      type: object
+      required: [itens, page, pageSize, total]
+      properties:
+        itens:
+          type: array
+          items:
+            $ref: '#/components/schemas/Acompanhamento'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+          description: Acompanhamentos da empresa que combinam com o filtro de etapa.
