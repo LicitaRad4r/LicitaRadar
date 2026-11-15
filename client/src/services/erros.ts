@@ -55,6 +55,8 @@ export function mensagemAmigavel(erro: unknown): string {
       return 'Configure o perfil da sua empresa para começar a usar o LicitaRadar.'
     case 'ACESSO_NEGADO':
       return 'Seu perfil de acesso não permite ver esta informação. Fale com o decisor da sua empresa.'
+    case 'REGRA_DE_NEGOCIO':
+      return 'Essa mudança não é permitida. O edital continua onde estava.'
     case 'NAO_ENCONTRADO':
       return 'Não encontramos o que você procurava. Ele pode ter sido removido.'
     case 'VALIDACAO':

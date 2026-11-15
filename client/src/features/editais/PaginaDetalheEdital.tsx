@@ -8,6 +8,7 @@ import { diaEmBrasilia, diasEntre, hojeEmBrasilia } from '@/lib/datas'
 import { formatarDia, formatarMoeda, textoPrazo } from '@/lib/formatar'
 import type { EditalDetalheDTO } from '@/services/dto'
 import { ApiError } from '@/services/erros'
+import { BotaoAcompanhar } from '@/features/acompanhamento/BotaoAcompanhar'
 import { useEdital } from './api'
 
 export type EstadoDaRotaDoDetalhe = { buscaDoFeed?: string } | null
@@ -84,18 +85,21 @@ function DetalheDoEdital({ edital }: { edital: EditalDetalheDTO }) {
         <InformacaoDoEdital rotulo="Publicado em" valor={formatarDia(diaEmBrasilia(edital.dataPublicacao))} />
       </dl>
 
-      {edital.linkPncp && (
-        <a
-          href={edital.linkPncp}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={buttonVariants({ variant: 'outline', size: 'lg' })}
-        >
-          Ver edital original no PNCP
-          <ExternalLink aria-hidden />
-          <span className="sr-only">(abre em nova aba)</span>
-        </a>
-      )}
+      <div className="flex flex-wrap items-center gap-3">
+        <BotaoAcompanhar editalId={edital.id} tituloDoEdital={edital.titulo} className="h-9 px-3" />
+        {edital.linkPncp && (
+          <a
+            href={edital.linkPncp}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={buttonVariants({ variant: 'outline', size: 'lg' })}
+          >
+            Ver edital original no PNCP
+            <ExternalLink aria-hidden />
+            <span className="sr-only">(abre em nova aba)</span>
+          </a>
+        )}
+      </div>
     </article>
   )
 }
