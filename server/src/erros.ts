@@ -1,7 +1,7 @@
 import type { FastifyError, FastifyInstance } from 'fastify'
 import { ZodError } from 'zod'
 
-export type CodigoErro = 'VALIDACAO' | 'NAO_AUTENTICADO' | 'EMPRESA_NAO_CONFIGURADA' | 'NAO_ENCONTRADO' | 'ACESSO_NEGADO' | 'ERRO_INTERNO'
+export type CodigoErro = 'VALIDACAO' | 'NAO_AUTENTICADO' | 'EMPRESA_NAO_CONFIGURADA' | 'NAO_ENCONTRADO' | 'ACESSO_NEGADO' | 'REGRA_DE_NEGOCIO' | 'ERRO_INTERNO'
 
 export interface DetalheErro {
   campo: string
@@ -26,6 +26,9 @@ export const semEmpresa = () =>
 export const acessoNegado = (mensagem = 'Acesso negado.') => new ErroApi(403, 'ACESSO_NEGADO', mensagem)
 export const naoEncontrado = (mensagem = 'Recurso não encontrado.') =>
   new ErroApi(404, 'NAO_ENCONTRADO', mensagem)
+
+/** Pedido bem formado, mas que a regra de negócio não permite (ex.: transição de etapa inválida). */
+export const regraDeNegocio = (mensagem: string) => new ErroApi(422, 'REGRA_DE_NEGOCIO', mensagem)
 
 export function erroDeZod(e: ZodError): ErroApi {
   const detalhes = e.issues.map((i) => ({ campo: i.path.join('.'), mensagem: i.message }))

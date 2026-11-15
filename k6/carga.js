@@ -1,5 +1,6 @@
 import http from 'k6/http'
 import { check, sleep } from 'k6'
+import exec from 'k6/execution'
  
 const API = (__ENV.API_URL || 'http://localhost:3333').replace(/\/$/, '')
 const AUTH = (__ENV.AUTH_URL || 'http://localhost:9099').replace(/\/$/, '')
@@ -16,6 +17,9 @@ if (!LOCAL.test(API) || !LOCAL.test(AUTH)) {
   throw new Error(`API_URL e AUTH_URL precisam apontar para a máquina local (recebido: ${API} e ${AUTH}).`)
 }
  
+// Editais do seed que o cenário de escrita acompanha (cada iteração usa um; com até 4 VUs de escrita dois VUs não pegam o mesmo).
+const EDITAIS_ESCRITA = ['golden-B', 'golden-C', 'golden-D', 'golden-F']
+
 const etapas = CURTO
   ? (alvo) => [{ duration: '5s', target: alvo }, { duration: '8s', target: alvo }, { duration: '2s', target: 0 }]
   : (alvo) => [{ duration: '20s', target: alvo }, { duration: '60s', target: alvo }, { duration: '10s', target: 0 }]
@@ -28,6 +32,8 @@ export const options = {
     feed_com_filtros: cenario('feedComFiltros', VUS),
     certidoes: cenario('certidoes', VUS),
     perfil_escrita: cenario('perfilEscrita', VUS_ESCRITA),
+    acompanhamentos_listar: cenario('acompanhamentosListar', VUS),
+    acompanhamentos_mover: cenario('acompanhamentosMover', Math.min(VUS_ESCRITA, EDITAIS_ESCRITA.length)),
   },
   thresholds: {
     'http_req_duration{tipo:leitura}': ['p(95)<800'],
@@ -36,6 +42,8 @@ export const options = {
     'http_req_duration{rota:feed_com_filtros}': ['p(95)<800'],
     'http_req_duration{rota:certidoes}': ['p(95)<800'],
     'http_req_duration{rota:perfil_escrita}': ['p(95)<1500'],
+    'http_req_duration{rota:acompanhamentos_listar}': ['p(95)<800'],
+    'http_req_duration{rota:acompanhamentos_mover}': ['p(95)<1500'],
     http_req_failed: ['rate<0.01'],
     checks: ['rate>0.99'],
   },
@@ -69,7 +77,29 @@ export function setup() {
   if (r.status !== 200) {
     throw new Error(`Login no emulador de Auth falhou (HTTP ${r.status}). O compose está no ar e o seed foi rodado?`)
   }
-  return { token: r.json('idToken') }
+  const token = r.json('idToken')
+  // Um acompanhamento por VU de escrita. Os que o teste criar (201) são apagados no teardown.
+  const acompanhamentos = EDITAIS_ESCRITA.map((editalId) => {
+    const c = http.post(`${API}/v1/acompanhamentos`, JSON.stringify({ editalId }), {
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      tags: { tipo: 'setup' },
+    })
+    if (c.status !== 200 && c.status !== 201) {
+      throw new Error(`POST /v1/acompanhamentos (${editalId}) falhou (HTTP ${c.status}). O seed foi rodado?`)
+    }
+    return { id: c.json('id'), criado: c.status === 201 }
+  })
+  return { token, acompanhamentos }
+}
+
+export function teardown(dados) {
+  for (const a of dados.acompanhamentos) {
+    if (!a.criado) continue
+    http.del(`${API}/v1/acompanhamentos/${a.id}`, null, {
+      headers: { Authorization: `Bearer ${dados.token}` },
+      tags: { tipo: 'setup' },
+    })
+  }
 }
  
 function opcoes(token, tipo, rota, extra = {}) {
@@ -120,12 +150,42 @@ export function perfilEscrita(dados) {
   sleep(1)
 }
  
+export function acompanhamentosListar(dados) {
+  const etapa = ['', '?etapa=interessado', '?etapa=preparando', '?page=1&pageSize=10'][Math.floor(Math.random() * 4)]
+  const r = http.get(`${API}/v1/acompanhamentos${etapa}`, opcoes(dados.token, 'leitura', 'acompanhamentos_listar'))
+  check(r, {
+    'acompanhamentos: 200': (x) => x.status === 200,
+    'acompanhamentos: itens é lista': (x) => Array.isArray(x.json('itens')),
+  })
+  sleep(0.3)
+}
+
+// Move o acompanhamento do VU para preparando e de volta para interessado: o estado final é o inicial.
+export function acompanhamentosMover(dados) {
+  // Iterações seguidas do cenário usam acompanhamentos diferentes (o __VU é global do teste, não do cenário).
+  const alvo = dados.acompanhamentos[exec.scenario.iterationInInstance % dados.acompanhamentos.length]
+  for (const etapa of ['preparando', 'interessado']) {
+    const r = http.patch(
+      `${API}/v1/acompanhamentos/${alvo.id}`,
+      JSON.stringify({ etapa }),
+      opcoes(dados.token, 'escrita', 'acompanhamentos_mover', { headers: { 'Content-Type': 'application/json' } }),
+    )
+    check(r, {
+      [`acompanhamentos: PATCH para ${etapa} dá 200`]: (x) => x.status === 200,
+      [`acompanhamentos: etapa ${etapa} na resposta`]: (x) => x.json('etapa') === etapa,
+    })
+    sleep(0.5)
+  }
+}
+
 // Resumo legível no terminal e em arquivos (.md para colar em docs/Testes, .json com os números brutos).
 const ROTAS = [
   ['feed_sem_filtros', 'GET /v1/feed (sem filtros)', 'leitura', 800],
   ['feed_com_filtros', 'GET /v1/feed (com filtros)', 'leitura', 800],
   ['certidoes', 'GET /v1/certidoes', 'leitura', 800],
   ['perfil_escrita', 'PUT /v1/perfil', 'escrita', 1500],
+  ['acompanhamentos_listar', 'GET /v1/acompanhamentos', 'leitura', 800],
+  ['acompanhamentos_mover', 'PATCH /v1/acompanhamentos/{id}', 'escrita', 1500],
 ]
 const ms = (v) => (v === undefined ? '-' : `${v.toFixed(1)} ms`)
  

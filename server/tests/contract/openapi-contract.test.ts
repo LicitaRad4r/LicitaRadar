@@ -286,8 +286,8 @@ describe('Estrutura e rotas do contrato OpenAPI 3.1 (openapi.yaml)', () => {
     expect(openapiTexto).toContain('url: http://localhost:3333')
   })
 
-  test('documenta as 7 rotas e 9 operações do contrato v0.3 (CP2: perfil, feed, edital, certidões e saúde)', () => {
-    // v0.3: saíram feedback, acompanhamento(s), alertas e PATCH/DELETE de certidão (sem base na documentação / plano do CP2).
+  test('documenta as 9 rotas e 13 operações do contrato v0.3 (perfil, feed, edital, certidões, acompanhamentos e saúde)', () => {
+    // v0.3: saíram feedback, alertas e PATCH/DELETE de certidão. Os acompanhamentos voltaram com o card #67.
     const operacoesEsperadas: Array<[string, string[]]> = [
       ['/health', ['GET']],
       ['/v1/perfil', ['GET', 'PUT']],
@@ -296,6 +296,8 @@ describe('Estrutura e rotas do contrato OpenAPI 3.1 (openapi.yaml)', () => {
       ['/v1/certidoes', ['GET', 'POST']],
       ['/v1/certidoes/{certidaoId}', ['GET']],
       ['/v1/certidoes/{certidaoId}/renovacao', ['PUT']],
+      ['/v1/acompanhamentos', ['GET', 'POST']],
+      ['/v1/acompanhamentos/{acompanhamentoId}', ['PATCH', 'DELETE']],
     ]
 
     for (const [rota, metodos] of operacoesEsperadas) {
@@ -325,6 +327,9 @@ describe('Estrutura e rotas do contrato OpenAPI 3.1 (openapi.yaml)', () => {
       'Certidao',
       'CertidaoStatus',
       'Faixa',
+      'Acompanhamento',
+      'AcompanhamentoPagina',
+      'Etapa',
     ]) {
       expect(schemaClienteTexto).toContain(`${schema}:`)
     }
