@@ -1,3 +1,5 @@
+import { Link, useLocation } from 'react-router'
+import type { EstadoDaRotaDoDetalhe } from '@/features/editais/PaginaDetalheEdital'
 import type { FeedItemDTO } from '@/services/dto'
 import { diaEmBrasilia, diasEntre, hojeEmBrasilia } from '@/lib/datas'
 import { formatarDataCurta, formatarMoeda, textoPrazo } from '@/lib/formatar'
@@ -9,6 +11,7 @@ const PRAZO_URGENTE = 3
 
 /** Card de um edital do feed: nota e faixa, órgão e local, objeto, prazo, valor, modalidade e publicação. */
 export function ItemDoFeed({ edital }: { edital: FeedItemDTO }) {
+  const buscaDoFeed = useLocation().search
   // Dias até o prazo, contados em Brasília como no back.
   const dias = diasEntre(hojeEmBrasilia(), diaEmBrasilia(edital.prazo))
   const urgente = dias <= PRAZO_URGENTE
@@ -19,7 +22,7 @@ export function ItemDoFeed({ edital }: { edital: FeedItemDTO }) {
 
   return (
     <article
-      className="flex flex-col gap-4 rounded-xl border bg-card p-5 sm:flex-row sm:items-start"
+      className="relative flex flex-col gap-4 rounded-xl border bg-card p-5 transition-colors hover:border-radar/40 has-focus-visible:ring-3 has-focus-visible:ring-ring/50 sm:flex-row sm:items-start"
       aria-labelledby={`edital-${edital.id}`}
     >
       <div className="min-w-0 flex-1 space-y-2.5">
@@ -32,7 +35,13 @@ export function ItemDoFeed({ edital }: { edital: FeedItemDTO }) {
         </div>
 
         <h2 id={`edital-${edital.id}`} className="text-base leading-snug font-semibold text-foreground">
-          {edital.titulo}
+          <Link
+            to={`/editais/${encodeURIComponent(edital.id)}`}
+            state={{ buscaDoFeed } satisfies EstadoDaRotaDoDetalhe}
+            className="outline-none after:absolute after:inset-0 after:rounded-xl"
+          >
+            {edital.titulo}
+          </Link>
         </h2>
 
         <p className="text-xs text-muted-foreground">
