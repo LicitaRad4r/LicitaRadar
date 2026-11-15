@@ -8,6 +8,10 @@
 #
 # Até lá o schedule não executa (ENABLE_PNCP_INGEST ≠ true).
 # workflow_dispatch permite teste manual depois que secrets e rota existirem.
+#
+# Falha avisa por e-mail: abre uma issue com o rótulo ingestao-pncp atribuída aos logins da variável
+# INGEST_ALERTA_RESPONSAVEIS (separados por vírgula), e o GitHub manda o e-mail a eles.
+# Se já houver uma issue aberta, comenta nela em vez de abrir outra.
 
 name: Ingestão PNCP
 
@@ -20,6 +24,10 @@ on:
 concurrency:
   group: ingestao-pncp
   cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
 
 jobs:
   ingest:
@@ -50,3 +58,26 @@ jobs:
             -o /tmp/ingest-response.json \
             -w "\nHTTP %{http_code}\n"
           cat /tmp/ingest-response.json
+
+      - name: Avisar a falha por e-mail
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RESPONSAVEIS: ${{ vars.INGEST_ALERTA_RESPONSAVEIS || 'jpnunes2210,LuisFelipe311' }}
+          ENDERECO_DA_EXECUCAO: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DISPARO: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          gh label create ingestao-pncp --color d73a4a --description "Falha na ingestão diária do PNCP" 2>/dev/null || true
+          mensagem="A ingestão do PNCP falhou em $(date -u '+%Y-%m-%d %H:%M UTC') (disparo: ${DISPARO}). Veja o log da execução: ${ENDERECO_DA_EXECUCAO}"
+          issue_aberta=$(gh issue list --label ingestao-pncp --state open --limit 1 --json number --jq '.[0].number // empty')
+          if [ -n "$issue_aberta" ]; then
+            gh issue comment "$issue_aberta" --body "$mensagem"
+          else
+            corpo="$mensagem
+
+          Feche esta issue quando a ingestão voltar a funcionar."
+            gh issue create --title "Falha na ingestão do PNCP" --label ingestao-pncp --assignee "$RESPONSAVEIS" --body "$corpo" \
+              || gh issue create --title "Falha na ingestão do PNCP" --label ingestao-pncp --body "$corpo"
+          fi
