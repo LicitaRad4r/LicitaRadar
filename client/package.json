@@ -9,6 +9,7 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest",
+    "test:unit": "vitest run",
     "test:e2e": "playwright test",
     "gen:api": "npx --yes openapi-typescript@7 ../server/openapi.yaml -o src/services/schema.d.ts"
   },
