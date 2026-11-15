@@ -1,9 +1,10 @@
 import { useEffect } from 'react'
 import { LoaderCircle, Radar, SearchX } from 'lucide-react'
+import { Link } from 'react-router'
 import { EstadoDaConsulta, Vazio } from '@/components/estado'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Paginacao } from '@/components/Paginacao'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { MotivoVazio } from '@/services/dto'
 import { useFeed } from './api'
@@ -124,6 +125,11 @@ function VazioDoFeed({
       icone={<SearchX aria-hidden />}
       titulo="Nenhum edital combina com o perfil da sua empresa"
       descricao="Há editais no radar, mas nenhum passou pelos critérios do perfil. Reveja os termos-chave e a faixa de valor: termos mais amplos e uma faixa maior trazem mais oportunidades."
+      acao={
+        <Link to="/perfil" className={buttonVariants({ variant: 'outline' })}>
+          Revisar perfil
+        </Link>
+      }
     />
   )
 }
