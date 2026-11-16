@@ -198,6 +198,8 @@ describe('Perfil da empresa (BUG-005, US06/US07)', () => {
     abrir('/perfil')
     await screen.findByRole('list', { name: 'Termos-chave adicionados' })
     const botaoSalvar = screen.getByRole('button', { name: 'Salvar perfil' })
+    const opcaoSP = screen.getByRole('checkbox', { name: 'SP' })
+    const opcaoDispensa = screen.getByRole('checkbox', { name: 'Dispensa' })
 
     const camposVisitados: HTMLElement[] = []
     async function tabularAte(chegou: (elemento: HTMLElement) => boolean) {
@@ -210,11 +212,12 @@ describe('Perfil da empresa (BUG-005, US06/US07)', () => {
       throw new Error('O foco não chegou ao elemento esperado pelo teclado.')
     }
 
-    await tabularAte((elemento) => elemento === campoDeTermo())
+    const campoDoTermo = campoDeTermo()
+    await tabularAte((elemento) => elemento === campoDoTermo)
     await userEvent.keyboard('impressora{Enter}')
-    await tabularAte((elemento) => elemento === screen.getByRole('checkbox', { name: 'SP' }))
+    await tabularAte((elemento) => elemento === opcaoSP)
     await userEvent.keyboard(' ')
-    await tabularAte((elemento) => elemento === screen.getByRole('checkbox', { name: 'Dispensa' }))
+    await tabularAte((elemento) => elemento === opcaoDispensa)
     await userEvent.keyboard(' ')
     await tabularAte((elemento) => elemento === botaoSalvar)
     await userEvent.keyboard('{Enter}')
