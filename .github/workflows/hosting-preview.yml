@@ -1,0 +1,120 @@
+# Preview do front em cada PR, só depois do CI verde.
+# O link fica no comentário do PR e o canal expira em 7 dias.
+# Este arquivo precisa estar na main para o workflow_run disparar.
+
+name: Hosting preview
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: hosting-preview-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Achar o PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          num=$(jq -r '.workflow_run.pull_requests[0].number // empty' "$GITHUB_EVENT_PATH")
+          if [ -z "$num" ]; then
+            num=$(gh pr list --search "${{ github.event.workflow_run.head_sha }}" --state open --json number --jq '.[0].number')
+          fi
+          if [ -z "$num" ] || [ "$num" = "null" ]; then
+            echo "PR não encontrado para este CI."
+            exit 1
+          fi
+          echo "number=$num" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Conferir variáveis do build
+        run: |
+          set -euo pipefail
+          faltando=""
+          for nome in VITE_API_URL VITE_FIREBASE_API_KEY VITE_FIREBASE_AUTH_DOMAIN VITE_FIREBASE_PROJECT_ID; do
+            eval "valor=\${$nome}"
+            if [ -z "$valor" ]; then faltando="$faltando $nome"; fi
+          done
+          if [ -n "$faltando" ]; then
+            echo "Faltam variables:$faltando"
+            exit 1
+          fi
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+
+      - run: npm ci
+        working-directory: client
+
+      - name: Build do front
+        working-directory: client
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_API_MOCK: "false"
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+        run: npm run build
+
+      - name: Publicar o canal
+        id: canal
+        env:
+          FIREBASE_SERVICE_ACCOUNT_HOSTING: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HOSTING }}
+        run: |
+          set -euo pipefail
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT_HOSTING" ]; then
+            echo "Falta o secret FIREBASE_SERVICE_ACCOUNT_HOSTING."
+            exit 1
+          fi
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT_HOSTING" > "$RUNNER_TEMP/firebase-hosting.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase-hosting.json"
+          npx --yes firebase-tools@15.33.0 hosting:channel:deploy "pr-${{ steps.pr.outputs.number }}" \
+            --expires 7d --project licitaradar-13047 --non-interactive --json > "$RUNNER_TEMP/hosting.json"
+          url=$(HOSTING_JSON="$RUNNER_TEMP/hosting.json" node --input-type=module -e '
+            import { readFileSync } from "node:fs"
+            const bruto = readFileSync(process.env.HOSTING_JSON, "utf8")
+            const j = JSON.parse(bruto.slice(bruto.indexOf("{")))
+            const url = Object.values(j.result ?? {}).map((s) => s.url).find(Boolean)
+            if (!url) process.exit(1)
+            process.stdout.write(url)
+          ')
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Comentar o link no PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ steps.pr.outputs.number }}
+          URL: ${{ steps.canal.outputs.url }}
+        run: |
+          set -euo pipefail
+          body=$(printf '%s\n' "<!-- hosting-preview -->" "Preview do front (o canal expira em 7 dias): ${URL}" "" "Quem for revisar, abra esse link.")
+          id=$(gh api --paginate "repos/${REPO}/issues/${PR}/comments" --jq 'map(select(.body | startswith("<!-- hosting-preview -->"))) | .[-1].id // empty')
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/${REPO}/issues/comments/${id}" -f body="$body" >/dev/null
+          else
+            gh pr comment "$PR" --body "$body"
+          fi
