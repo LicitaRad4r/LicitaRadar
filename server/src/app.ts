@@ -4,6 +4,7 @@ import cors from '@fastify/cors'
 import multipart from '@fastify/multipart'
 import Fastify, { LogController, type FastifyInstance } from 'fastify'
 import { rotasAcompanhamentos } from './acompanhamento/rotas.js'
+import { origensCors } from './cors-origens.js'
 import type { DependenciasAcompanhamento } from './acompanhamento/repositorio.js'
 import { rotasCertidoes } from './certidoes/rotas.js'
 import type { ArmazenamentoArquivos, CertidaoRepo } from './certidoes/repositorio.js'
@@ -34,7 +35,7 @@ export interface Dependencias {
   ingestao?: () => Promise<ResultadoIngestao>
   /** Verifica as dependências para o `/readyz` (ex.: Firestore). Lança erro se não estiver pronto. */
   prontidao?: () => Promise<void>
-  /** Origens do front aceitas pelo CORS (`CORS_ORIGENS`, separadas por vírgula). Padrão: o Vite local. */
+  /** Origens extras do front (`CORS_ORIGENS`). O Hosting deste projeto e o Vite local entram sempre. */
   corsOrigens?: string[]
   logger?: boolean
   /** Só para testes: captura os logs. */
@@ -76,8 +77,9 @@ export function buildApp(deps: Dependencias): FastifyInstance {
   registrarErros(app)
   // CORS antes da autenticação: o preflight (OPTIONS) não leva `Authorization` e até a resposta 401 precisa dos
   // cabeçalhos de CORS para o front conseguir ler o erro. Os hooks rodam na ordem de registro.
+  const origensConfiguradas = deps.corsOrigens ?? ['http://localhost:5173']
   app.register(cors, {
-    origin: deps.corsOrigens ?? ['http://localhost:5173'],
+    origin: origensCors(origensConfiguradas),
     methods: ['GET', 'PUT', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Authorization', 'Content-Type'],
     maxAge: 600,

@@ -57,6 +57,21 @@ describe('CORS', () => {
     expect(get.headers['access-control-allow-origin']).toBeUndefined()
   })
 
+  it('aceita o site publicado e o canal de preview deste projeto, e recusa outro .web.app', async () => {
+    const app = criar()
+    for (const origem of [
+      'https://licitaradar-13047.web.app',
+      'https://licitaradar-13047.firebaseapp.com',
+      'https://licitaradar-13047--pr-12-abc123.web.app',
+    ]) {
+      const r = await preflight(app, '/v1/feed', origem)
+      expect(r.statusCode, origem).toBe(204)
+      expect(r.headers['access-control-allow-origin'], origem).toBe(origem)
+    }
+    const outro = await preflight(app, '/v1/feed', 'https://outro-projeto.web.app')
+    expect(outro.headers['access-control-allow-origin']).toBeUndefined()
+  })
+
   it('aceita as origens configuradas (ex.: o domínio do Firebase Hosting)', async () => {
     const app = criar(['https://licitaradar.web.app', 'http://localhost:5173'])
     const r = await preflight(app, '/v1/feed', 'https://licitaradar.web.app')
