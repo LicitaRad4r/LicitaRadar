@@ -109,7 +109,7 @@ Código em `src/acompanhamento` (regras, rotas, repositório) e `src/infra/fires
 - **Custo (Firestore)**: a listagem lê só a página pedida. O `total` vem de `count()` (agregação, 1 leitura a cada 1.000 documentos indexados) e os documentos antes da página entram como `offset` (também cobrados). O repositório não tem método que leia a coleção inteira.
 
 ### Índices do Firestore
-`firestore.indexes.json` (na raiz) declara 3 índices compostos de `acompanhamentos`: `(empresaId, prazoEm)`, `(empresaId, fase, prazoEm)` e `(empresaId, etapa, prazoEm)`. **O emulador não exige índices**, então a falta deles só aparece em produção (erro `FAILED_PRECONDITION`). Antes de usar no Render: `firebase deploy --only firestore:indexes` (a construção leva alguns minutos).
+`firestore.indexes.json` (na raiz) declara 3 índices compostos de `acompanhamentos`: `(empresaId, prazoEm)`, `(empresaId, fase, prazoEm)` e `(empresaId, etapa, prazoEm)`. **O emulador não exige índices**, então a falta deles só aparece em produção (erro `FAILED_PRECONDITION`). O workflow `Deploy` publica este arquivo e o `firestore.rules` quando o CI da `main` fica verde. A construção de um índice novo leva alguns minutos.
 
 ### Rodando e testando
 ```

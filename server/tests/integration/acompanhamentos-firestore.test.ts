@@ -41,8 +41,11 @@ const idsCriados = new Set<string>()
 const col = () => getFirestore().collection('acompanhamentos')
 
 async function limpar() {
-  await Promise.all([...idsCriados].map((id) => col().doc(id).delete()))
+  const marcados = [...idsCriados]
   idsCriados.clear()
+  // Um teste que estoura o tempo pode gravar depois do delete pelo id. A consulta tira o que restar desta rodada.
+  const extras = await col().where('empresaId', 'in', [EMP, OUTRA]).get()
+  await Promise.all([...marcados.map((id) => col().doc(id).delete()), ...extras.docs.map((d) => d.ref.delete())])
 }
 
 beforeAll(() => {

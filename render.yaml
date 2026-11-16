@@ -1,0 +1,24 @@
+# Formato do serviço de API que já existe no Render.
+# Não use este arquivo para criar um segundo serviço: o plano gratuito é um só.
+# Valores secretos ficam no painel do Render (sync: false). Nenhum deles está aqui.
+
+services:
+  - type: web
+    name: licitaradar-api
+    runtime: docker
+    plan: free
+    branch: main
+    dockerfilePath: ./server/Dockerfile.render
+    dockerContext: ./server
+    healthCheckPath: /healthz
+    envVars:
+      - key: GCLOUD_PROJECT
+        value: licitaradar-13047
+      - key: INGEST_FONTE
+        value: pncp
+      - key: CORS_ORIGENS
+        value: http://localhost:5173
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: INGEST_JOB_TOKEN
+        sync: false
