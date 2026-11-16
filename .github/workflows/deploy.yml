@@ -1,6 +1,7 @@
-# Publica o front em https://licitaradar-13047.web.app depois do CI verde na main.
+# Depois do CI verde na main: publica o front, as regras e os índices do Firestore.
 # O nome deste workflow é "Deploy": o smoke test já espera exatamente isso.
 # Este arquivo precisa estar na main para o workflow_run disparar.
+# Hosting e Firestore usam contas diferentes. Nenhuma das duas é a do Admin SDK do Render.
 
 name: Deploy
 
@@ -75,3 +76,30 @@ jobs:
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT_HOSTING" > "$RUNNER_TEMP/firebase-hosting.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase-hosting.json"
           npx --yes firebase-tools@15.33.0 deploy --only hosting --project licitaradar-13047 --non-interactive
+
+  firestore:
+    name: regras e índices
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Publicar regras e índices
+        env:
+          FIREBASE_SERVICE_ACCOUNT_FIRESTORE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_FIRESTORE }}
+        run: |
+          set -euo pipefail
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT_FIRESTORE" ]; then
+            echo "Falta o secret FIREBASE_SERVICE_ACCOUNT_FIRESTORE."
+            exit 1
+          fi
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT_FIRESTORE" > "$RUNNER_TEMP/firebase-firestore.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase-firestore.json"
+          npx --yes firebase-tools@15.33.0 deploy --only firestore:rules,firestore:indexes --project licitaradar-13047 --non-interactive

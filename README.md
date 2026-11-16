@@ -81,6 +81,22 @@ O CI também roda, em jobs separados:
 - Playwright em modo mock, só Chromium: `cd client && npx playwright install chromium && npm run test:e2e -- --project=chromium`
 - Regras do Firestore no emulador (Java 21). Na raiz, com as deps do `server` já instaladas: `npx firebase-tools@15.33.0 --project demo-licitaradar emulators:exec --only firestore "npm run test:int --prefix server"`
 
+## Onde fica a configuração de nuvem
+
+| O quê | Onde está |
+| ----- | --------- |
+| Projeto Firebase (`licitaradar-13047`) | `.firebaserc` |
+| Hosting, emuladores, regras e índices | `firebase.json` |
+| Regras deny-all | `firestore.rules` |
+| Índices do kanban | `firestore.indexes.json` |
+| Preview do front, um canal por PR (7 dias) | `.github/workflows/hosting-preview.yml` |
+| Site, regras e índices depois do CI verde na `main` | `.github/workflows/deploy.yml` |
+| Smoke test depois desse deploy | `.github/workflows/smoke-test.yml` |
+| API no Render | `render.yaml` e [`docs/nuvem.md`](docs/nuvem.md) |
+| Variáveis locais, sem segredo | `.env.example` e `client/.env.example` |
+
+Segredos não entram no Git. A conta de Hosting, a conta que publica regras e índices, e o token do job ficam em secrets do repositório. O JSON do Admin SDK da API fica só no Render.
+
 ## Documentação
 
 Produto, ADRs, FinOps e jornadas: repositório
