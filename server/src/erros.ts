@@ -63,8 +63,8 @@ export function registrarErros(app: FastifyInstance) {
     const e = erro instanceof ZodError ? erroDeZod(erro) : erro
     if (e instanceof ErroApi) {
       if (e.status === 401 || e.status === 403) {
-        // Bloqueios: só requestId, rota e status. Nada do recurso nem do usuário.
-        req.log.warn({ route: req.routeOptions.url, status: e.status }, 'acesso bloqueado')
+        // Bloqueios: requestId, rota, status e latência. Nada do recurso nem do usuário.
+        req.log.warn({ route: req.routeOptions.url, status: e.status, latenciaMs: Math.round(reply.elapsedTime) }, 'acesso bloqueado')
       }
       return reply.status(e.status).send({ codigo: e.codigo, mensagem: e.message, requestId: req.id, detalhes: e.detalhes })
     }
@@ -74,7 +74,7 @@ export function registrarErros(app: FastifyInstance) {
       return reply.status(400).send({ codigo: 'VALIDACAO', mensagem: 'Requisição inválida.', requestId: req.id })
     }
     // Sem dados no log: nada de e.message (pode trazer caminho de documento). Vão só rota, status, tipo, código e pilha.
-    req.log.error({ route: req.routeOptions.url, status: 500, ...descreverErro(e) }, 'erro inesperado')
+    req.log.error({ ...descreverErro(e), route: req.routeOptions.url, status: 500, latenciaMs: Math.round(reply.elapsedTime) }, 'erro inesperado')
     return reply.status(500).send({ codigo: 'ERRO_INTERNO', mensagem: 'Erro interno.', requestId: req.id })
   })
 }

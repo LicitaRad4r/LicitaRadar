@@ -170,7 +170,8 @@ describe('segurança (CT-SEG)', () => {
     expect(log).toMatch(/"route":"\/certidoes\/:certidaoId\/renovacao"/)
     expect(log).toMatch(/"status":403/)
     const entrada = linhas.map((l) => JSON.parse(l)).find((l) => l.msg === 'acesso bloqueado')
-    expect(Object.keys(entrada).sort()).toEqual(['level', 'msg', 'requestId', 'route', 'status', 'time'])
+    expect(Object.keys(entrada).sort()).toEqual(['latenciaMs', 'level', 'msg', 'requestId', 'route', 'status', 'time'])
+    expect(entrada.latenciaMs).toEqual(expect.any(Number))
     expect(log).not.toMatch(/cert-a-mais3|emp-a|emp-b|u-dec-b|Bearer|decisorB/)
   })
 

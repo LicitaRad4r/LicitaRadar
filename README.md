@@ -93,6 +93,7 @@ O CI também roda, em jobs separados:
 | Site, regras e índices depois do CI verde na `main` | `.github/workflows/deploy.yml` |
 | Smoke test depois desse deploy | `.github/workflows/smoke-test.yml` |
 | API no Render | `render.yaml` e [`docs/nuvem.md`](docs/nuvem.md) |
+| Alertas e p95 | [`docs/operacao/alertas.md`](docs/operacao/alertas.md) |
 | Variáveis locais, sem segredo | `.env.example` e `client/.env.example` |
 
 Segredos não entram no Git. A conta de Hosting, a conta que publica regras e índices, e o token do job ficam em secrets do repositório. O JSON do Admin SDK da API fica só no Render.
