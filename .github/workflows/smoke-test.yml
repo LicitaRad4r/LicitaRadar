@@ -44,5 +44,5 @@ jobs:
         env:
           WEB_URL: ${{ inputs.web_url || vars.WEB_URL }}
           API_URL: ${{ inputs.api_url || vars.API_URL }}
-        run: scripts/smoke-test.sh
+        run: bash scripts/smoke-test.sh
  

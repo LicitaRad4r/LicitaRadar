@@ -102,4 +102,4 @@ jobs:
           fi
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT_FIRESTORE" > "$RUNNER_TEMP/firebase-firestore.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase-firestore.json"
-          npx --yes firebase-tools@15.33.0 deploy --only firestore:rules,firestore:indexes --project licitaradar-13047 --non-interactive
+          node scripts/publicar-firestore.mjs

@@ -16,7 +16,7 @@ O canal de preview não cabe no `firebase.json`. Cada pull request, depois do CI
 O workflow `Deploy` (`.github/workflows/deploy.yml`) roda depois do CI verde na `main` e publica duas coisas, com contas diferentes:
 
 - Hosting, com o secret `FIREBASE_SERVICE_ACCOUNT_HOSTING` (papel Firebase Hosting Admin).
-- `firestore:rules` e `firestore:indexes`, com o secret `FIREBASE_SERVICE_ACCOUNT_FIRESTORE` (papéis Firebase Rules Admin e Cloud Datastore Index Admin).
+- `firestore.rules` e `firestore.indexes.json`, com o secret `FIREBASE_SERVICE_ACCOUNT_FIRESTORE` (papéis Firebase Rules Admin e Cloud Datastore Index Admin). O job usa `scripts/publicar-firestore.mjs`: a conta não consulta o Service Usage, que é o que o Firebase CLI exige antes de publicar.
 
 Nenhuma dessas contas é o JSON do Admin SDK usado pela API. Um índice novo pode levar alguns minutos para ficar pronto; o job espera até 40 minutos.
 
