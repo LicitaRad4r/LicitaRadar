@@ -60,7 +60,7 @@ export function buildApp(deps: Dependencias): FastifyInstance {
     : deps.logger === false
       ? false
       : { level: 'info', base: null }
-  // Sem o log padrão de requisição (traz a URL); logamos só requestId, rota e status.
+  // Sem o log padrão de requisição (traz a URL); logamos requestId, rota, status e latência.
   // requestId gerado aqui (nunca aceito do cliente) e devolvido em todo erro e em todo log.
   const app = Fastify({ genReqId: () => randomUUID(), logger, logController: new LogController({ disableRequestLogging: true, requestIdLogLabel: 'requestId' }) })
 
@@ -71,7 +71,7 @@ export function buildApp(deps: Dependencias): FastifyInstance {
     for (const m of [r.method].flat()) if (m !== 'HEAD') rotas.push(`${m} ${r.url}`)
   })
   app.addHook('onResponse', async (req, reply) => {
-    req.log.info({ route: req.routeOptions.url, status: reply.statusCode }, 'requisicao')
+    req.log.info({ route: req.routeOptions.url, status: reply.statusCode, latenciaMs: Math.round(reply.elapsedTime) }, 'requisicao')
   })
 
   registrarErros(app)
@@ -97,7 +97,7 @@ export function buildApp(deps: Dependencias): FastifyInstance {
       await deps.prontidao?.()
       return { status: 'ready' }
     } catch {
-      req.log.warn({ route: req.routeOptions.url, status: 503 }, 'api nao pronta')
+      req.log.warn({ route: req.routeOptions.url, status: 503, latenciaMs: Math.round(reply.elapsedTime) }, 'api nao pronta')
       return reply.status(503).send({ status: 'unavailable' })
     }
   })
