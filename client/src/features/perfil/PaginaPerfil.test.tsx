@@ -169,4 +169,68 @@ describe('Perfil da empresa (BUG-005, US06/US07)', () => {
     expect(router.state.location.pathname).toBe('/')
     expect(await screen.findAllByRole('article')).not.toHaveLength(0)
   })
+  it('do feed sem editais para o perfil, leva ao perfil; salvar muda o feed (US08)', async () => {
+    const TERMO_QUE_TRAZ_EDITAIS = 'impressora'
+    servidor.use(
+      http.get(`${API_URL}/v1/feed`, () =>
+        banco.perfil.termosChave?.includes(TERMO_QUE_TRAZ_EDITAIS)
+          ? undefined
+          : HttpResponse.json({ itens: [], page: 1, pageSize: 10, total: 0, totalIngeridos: 24, motivoVazio: 'todos_descartados' }),
+      ),
+    )
+    abrir('/')
+
+    expect(await screen.findByText('Nenhum edital combina com o perfil da sua empresa')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('link', { name: 'Revisar perfil' }))
+
+    await screen.findByRole('list', { name: 'Termos-chave adicionados' })
+    await adicionarTermo(TERMO_QUE_TRAZ_EDITAIS)
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar perfil' }))
+    await waitFor(() => expect(banco.perfil.termosChave).toContain(TERMO_QUE_TRAZ_EDITAIS))
+
+    await userEvent.click(within(screen.getByRole('navigation', { name: 'Principal' })).getByRole('link', { name: 'Editais' }))
+    expect(await screen.findAllByRole('article')).not.toHaveLength(0)
+    expect(screen.queryByText('Nenhum edital combina com o perfil da sua empresa')).not.toBeInTheDocument()
+  })
+
+  it('dá para preencher e salvar só pelo teclado, e todo campo tem rótulo', async () => {
+    const corposEnviados = guardarCorpoDoPut()
+    abrir('/perfil')
+    await screen.findByRole('list', { name: 'Termos-chave adicionados' })
+    const botaoSalvar = screen.getByRole('button', { name: 'Salvar perfil' })
+    const opcaoSP = screen.getByRole('checkbox', { name: 'SP' })
+    const opcaoDispensa = screen.getByRole('checkbox', { name: 'Dispensa' })
+
+    const camposVisitados: HTMLElement[] = []
+    async function tabularAte(chegou: (elemento: HTMLElement) => boolean) {
+      for (let tentativas = 0; tentativas < 100; tentativas++) {
+        await userEvent.tab()
+        const focado = document.activeElement as HTMLElement
+        camposVisitados.push(focado)
+        if (chegou(focado)) return focado
+      }
+      throw new Error('O foco não chegou ao elemento esperado pelo teclado.')
+    }
+
+    const campoDoTermo = campoDeTermo()
+    await tabularAte((elemento) => elemento === campoDoTermo)
+    await userEvent.keyboard('impressora{Enter}')
+    await tabularAte((elemento) => elemento === opcaoSP)
+    await userEvent.keyboard(' ')
+    await tabularAte((elemento) => elemento === opcaoDispensa)
+    await userEvent.keyboard(' ')
+    await tabularAte((elemento) => elemento === botaoSalvar)
+    await userEvent.keyboard('{Enter}')
+
+    await waitFor(() => expect(corposEnviados).toHaveLength(1))
+    expect(corposEnviados[0].termosChave).toContain('impressora')
+    expect(corposEnviados[0].ufs).toEqual(['DF', 'GO', 'SP'])
+    expect(corposEnviados[0].modalidades).toEqual(['pregao_eletronico', 'dispensa'])
+
+    const camposDoFormulario = camposVisitados.filter((elemento) => elemento instanceof HTMLInputElement)
+    expect(camposDoFormulario.length).toBeGreaterThan(30)
+    for (const campo of camposDoFormulario as HTMLInputElement[]) {
+      expect(campo.labels?.length, `campo sem rótulo: ${campo.outerHTML}`).toBeGreaterThan(0)
+    }
+  })
 })
