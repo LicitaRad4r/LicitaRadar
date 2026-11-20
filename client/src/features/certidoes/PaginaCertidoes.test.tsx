@@ -8,7 +8,7 @@ import { hojeEmBrasilia, somarDias } from '@/lib/datas'
 import { servidor } from '@/mocks/servidor'
 import { rotas } from '@/routes/rotas'
 import { renderizar } from '@/testes/utils'
-import { LIMITE_ARQUIVO } from './FormularioRenovacao'
+import { LIMITE_ARQUIVO } from './arquivoDaCertidao'
 
 function abrirCertidoes() {
   const router = createMemoryRouter(rotas, { initialEntries: ['/certidoes'] })
