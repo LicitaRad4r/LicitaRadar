@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { chaves } from '@/lib/chaves'
 import { obterSaude } from '@/services/saude'
 import { useTratamentoDeAcesso } from '@/features/acesso/TratamentoDeAcesso'
+import { useSaidaPorInatividade } from '@/features/acesso/useSaidaPorInatividade'
 import { sessao, useSessao, type Usuario } from '@/lib/sessao'
 import { cn } from '@/lib/utils'
 
@@ -77,12 +78,13 @@ function MenuDoUsuario({ usuario }: { usuario: Usuario }) {
 
 /**
  * Moldura das páginas logadas: sem sessão, vai para o login (e volta para cá depois de entrar).
- * Aqui também fica o tratamento central de 401 e 403 (Jornada 4).
+ * Aqui também ficam o tratamento central de 401 e 403 (Jornada 4) e a saída por inatividade (US02).
  */
 export function Layout() {
   const { carregando, usuario } = useSessao()
   const local = useLocation()
   useTratamentoDeAcesso()
+  useSaidaPorInatividade(usuario !== null)
 
   if (carregando) {
     return (

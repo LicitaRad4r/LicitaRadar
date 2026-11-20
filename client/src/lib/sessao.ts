@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { registrarAtividade } from './inatividade'
 
 export type Papel = 'decisor' | 'analista'
 
@@ -67,7 +68,12 @@ function exigirProvedor() {
 }
 
 export const sessao = {
-  entrar: (email: string, senha: string) => exigirProvedor().entrar(email, senha),
+  entrar: async (email: string, senha: string) => {
+    const usuario = await exigirProvedor().entrar(email, senha)
+    // Sem isto, quem saiu e volta depois de 4 horas seria desconectado logo depois de entrar.
+    registrarAtividade()
+    return usuario
+  },
   /** Encerra a sessão. Com motivo, a tela de login explica por que a pessoa saiu. */
   sair: (motivo?: MotivoDaSaida) => {
     motivoDaSaida = motivo
