@@ -231,6 +231,26 @@ export const handlers = [
       return HttpResponse.json({ itens })
     }),
   ),
+  http.post(
+    url('/v1/certidoes'),
+    soDecisor(async ({ request }) => {
+      const dados = await request.formData()
+      const nome = String(dados.get('nome') ?? '').trim()
+      const arquivo = dados.get('arquivo')
+      const validade = String(dados.get('validade') ?? '')
+
+      if (!nome) return validacao('nome', 'Informe o tipo da certidão.')
+      if (!(arquivo instanceof Blob) || arquivo.size === 0) return validacao('arquivo', 'Envie o arquivo da certidão.')
+      if (!TIPOS_ACEITOS.includes(arquivo.type)) return validacao('arquivo', 'Envie um PDF, JPG ou PNG.')
+      if (arquivo.size > LIMITE_ARQUIVO) return validacao('arquivo', 'O arquivo passa de 5 MB.')
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(validade)) return validacao('validade', 'Informe a validade.')
+      if (validade <= hojeEmBrasilia()) return validacao('validade', 'A validade precisa ser depois de hoje.')
+
+      const criada = calcularCertidao({ id: `cert-${crypto.randomUUID()}`, nome, validade })
+      banco.certidoes.push(criada)
+      return HttpResponse.json(criada, { status: 201, headers: { Location: `/v1/certidoes/${criada.id}` } })
+    }),
+  ),
   http.put(
     url('/v1/certidoes/:certidaoId/renovacao'),
     soDecisor(async ({ params, request }) => {

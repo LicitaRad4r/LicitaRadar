@@ -1,12 +1,14 @@
 import { useState, type ReactNode } from 'react'
-import { FileCheck2 } from 'lucide-react'
+import { FilePlus2, FileCheck2 } from 'lucide-react'
 import type { CertidaoDTO } from '@/services/dto'
 import { EstadoDaConsulta, Vazio } from '@/components/estado'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatarDia } from '@/lib/formatar'
+import { useSessao } from '@/lib/sessao'
 import { cn } from '@/lib/utils'
 import { EM_ALERTA, useCertidoes } from './api'
+import { FormularioNovaCertidao } from './FormularioNovaCertidao'
 import { FormularioRenovacao } from './FormularioRenovacao'
 import { COR_STATUS, ROTULO_STATUS, textoValidade } from './rotulos'
 
@@ -17,11 +19,22 @@ import { COR_STATUS, ROTULO_STATUS, textoValidade } from './rotulos'
  */
 export function PaginaCertidoes() {
   const certidoes = useCertidoes()
+  const ehDecisor = useSessao().usuario?.papel === 'decisor'
   const [renovando, setRenovando] = useState<CertidaoDTO | null>(null)
-  const [recemRenovada, setRecemRenovada] = useState<string | null>(null)
+  const [enviandoNova, setEnviandoNova] = useState(false)
+  const [certidaoDestacada, setCertidaoDestacada] = useState<string | null>(null)
 
   return (
-    <PaginaComTitulo>
+    <PaginaComTitulo
+      acao={
+        ehDecisor && (
+          <Button size="lg" onClick={() => setEnviandoNova(true)}>
+            <FilePlus2 aria-hidden />
+            Nova certidão
+          </Button>
+        )
+      }
+    >
       <EstadoDaConsulta
         consulta={certidoes}
         tituloErro="Não foi possível carregar as certidões"
@@ -43,14 +56,14 @@ export function PaginaCertidoes() {
                 titulo={emAlerta.length > 0 ? `Precisam de atenção (${emAlerta.length})` : 'Precisam de atenção'}
                 certidoes={emAlerta}
                 vazio="Nenhuma certidão vence nos próximos 30 dias."
-                recemRenovada={recemRenovada}
+                certidaoDestacada={certidaoDestacada}
                 aoRenovar={setRenovando}
               />
               {emDia.length > 0 && (
                 <Grupo
                   titulo={`Em dia (${emDia.length})`}
                   certidoes={emDia}
-                  recemRenovada={recemRenovada}
+                  certidaoDestacada={certidaoDestacada}
                   aoRenovar={setRenovando}
                 />
               )}
@@ -63,24 +76,34 @@ export function PaginaCertidoes() {
         <FormularioRenovacao
           certidao={renovando}
           aoFechar={() => setRenovando(null)}
-          aoRenovar={(renovada) => setRecemRenovada(renovada.id)}
+          aoRenovar={(renovada) => setCertidaoDestacada(renovada.id)}
+        />
+      )}
+
+      {enviandoNova && (
+        <FormularioNovaCertidao
+          aoFechar={() => setEnviandoNova(false)}
+          aoCriar={(criada) => setCertidaoDestacada(criada.id)}
         />
       )}
     </PaginaComTitulo>
   )
 }
 
-function PaginaComTitulo({ children }: { children: ReactNode }) {
+function PaginaComTitulo({ acao, children }: { acao: ReactNode; children: ReactNode }) {
   return (
     <section aria-labelledby="titulo-certidoes" className="space-y-6">
-      <header className="space-y-1">
-        <h1 id="titulo-certidoes" className="text-2xl font-semibold tracking-tight text-tinta dark:text-foreground">
-          Certidões
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Documentos de habilitação da sua empresa, dos mais urgentes para os em dia. Uma certidão vencida pode
-          tirar a empresa de uma licitação.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-1">
+          <h1 id="titulo-certidoes" className="text-2xl font-semibold tracking-tight text-tinta dark:text-foreground">
+            Certidões
+          </h1>
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            Documentos de habilitação da sua empresa, dos mais urgentes para os em dia. Uma certidão vencida pode
+            tirar a empresa de uma licitação.
+          </p>
+        </div>
+        {acao}
       </header>
       {children}
     </section>
@@ -91,13 +114,13 @@ function Grupo({
   titulo,
   certidoes,
   vazio,
-  recemRenovada,
+  certidaoDestacada,
   aoRenovar,
 }: {
   titulo: string
   certidoes: CertidaoDTO[]
   vazio?: string
-  recemRenovada: string | null
+  certidaoDestacada: string | null
   aoRenovar: (certidao: CertidaoDTO) => void
 }) {
   const id = `grupo-${titulo.split(' ')[0].toLowerCase()}`
@@ -114,7 +137,7 @@ function Grupo({
             <LinhaCertidao
               key={certidao.id}
               certidao={certidao}
-              destacar={certidao.id === recemRenovada}
+              destacar={certidao.id === certidaoDestacada}
               aoRenovar={() => aoRenovar(certidao)}
             />
           ))}
@@ -137,7 +160,7 @@ function LinhaCertidao({
   const pedeAcao = certidao.status === 'vencida' || certidao.status === 'urgente'
   return (
     <li
-      // A certidão que acabou de ser renovada aparece no lugar novo com um destaque breve.
+      // A certidão que acabou de ser renovada ou enviada aparece no lugar certo com um destaque breve.
       className={cn('relative flex flex-wrap items-center gap-x-4 gap-y-2 py-4 pr-4 pl-6', destacar && 'animate-destaque')}
       aria-labelledby={`certidao-${certidao.id}`}
     >
