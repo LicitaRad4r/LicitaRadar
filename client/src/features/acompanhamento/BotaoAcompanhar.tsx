@@ -1,6 +1,7 @@
 import { Check, Plus } from 'lucide-react'
 import { Link } from 'react-router'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/buttonVariants'
 import { cn } from '@/lib/utils'
 import { useAcompanharEdital } from './api'
 

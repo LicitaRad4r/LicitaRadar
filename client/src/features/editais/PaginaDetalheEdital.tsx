@@ -1,7 +1,7 @@
 import { ArrowLeft, ExternalLink, FileQuestion, LoaderCircle } from 'lucide-react'
 import { Link, useLocation, useParams } from 'react-router'
 import { EstadoDaConsulta, Vazio } from '@/components/estado'
-import { buttonVariants } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/buttonVariants'
 import { SeloDeScore } from '@/features/feed/SeloDeScore'
 import { ROTULO_MODALIDADE } from '@/features/feed/rotulos'
 import { diaEmBrasilia, diasEntre, hojeEmBrasilia } from '@/lib/datas'
