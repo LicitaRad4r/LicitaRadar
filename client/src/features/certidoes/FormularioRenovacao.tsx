@@ -10,24 +10,13 @@ import { hojeEmBrasilia, somarDias } from '@/lib/datas'
 import { formatarDia } from '@/lib/formatar'
 import { cn } from '@/lib/utils'
 import { useRenovarCertidao } from './api'
-
-/** Mesmas regras do contrato: PDF, JPG ou PNG, de 1 byte até 5 MB (5 MB exatos é aceito). */
-export const LIMITE_ARQUIVO = 5 * 1024 * 1024
-const TIPOS_ACEITOS = ['application/pdf', 'image/jpeg', 'image/png']
-const EXTENSOES_ACEITAS = /\.(pdf|jpe?g|png)$/i
+import { esquemaDoArquivoDaCertidao } from './arquivoDaCertidao'
+import { CampoDoArquivoDaCertidao } from './CampoDoArquivoDaCertidao'
 
 function esquema(certidao: CertidaoDTO) {
   const hoje = hojeEmBrasilia()
   return z.object({
-    arquivo: z
-      .custom<FileList>()
-      .refine((lista) => lista?.length === 1, 'Escolha o arquivo da certidão nova.')
-      .refine((lista) => {
-        const arquivo = lista?.[0]
-        return !arquivo || TIPOS_ACEITOS.includes(arquivo.type) || EXTENSOES_ACEITAS.test(arquivo.name)
-      }, 'Envie um PDF, JPG ou PNG.')
-      .refine((lista) => !lista?.[0] || lista[0].size > 0, 'O arquivo está vazio.')
-      .refine((lista) => !lista?.[0] || lista[0].size <= LIMITE_ARQUIVO, 'O arquivo passa de 5 MB.'),
+    arquivo: esquemaDoArquivoDaCertidao,
     validade: z
       .string()
       .min(1, 'Informe a nova validade.')
@@ -47,7 +36,7 @@ type Props = {
 /** Formulário de renovação (issue #17): arquivo novo e nova validade, enviados no PUT /renovacao. */
 export function FormularioRenovacao({ certidao, aoFechar, aoRenovar }: Props) {
   const renovar = useRenovarCertidao()
-  const ids = { arquivo: useId(), validade: useId(), dicaArquivo: useId(), erroGeral: useId() }
+  const ids = { validade: useId(), erroGeral: useId() }
   const {
     register,
     handleSubmit,
@@ -90,26 +79,7 @@ export function FormularioRenovacao({ certidao, aoFechar, aoRenovar }: Props) {
           </Dialog.Description>
 
           <form onSubmit={handleSubmit(enviar)} noValidate className="mt-5 space-y-4">
-            <div className="space-y-1.5">
-              <label htmlFor={ids.arquivo} className="block text-sm font-medium">
-                Arquivo da certidão nova
-              </label>
-              <input
-                id={ids.arquivo}
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                aria-invalid={errors.arquivo ? true : undefined}
-                aria-describedby={ids.dicaArquivo}
-                {...register('arquivo')}
-                className={cn(
-                  'block w-full rounded-lg border border-input text-sm file:mr-3 file:h-9 file:border-0 file:border-r file:border-input file:bg-muted file:px-3 file:text-sm file:font-medium focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
-                  errors.arquivo && 'border-destructive',
-                )}
-              />
-              <p id={ids.dicaArquivo} className={cn('text-xs', errors.arquivo ? 'text-destructive' : 'text-muted-foreground')}>
-                {errors.arquivo?.message ?? 'PDF, JPG ou PNG, até 5 MB.'}
-              </p>
-            </div>
+            <CampoDoArquivoDaCertidao erro={errors.arquivo?.message} registro={register('arquivo')} />
 
             <div className="space-y-1.5">
               <label htmlFor={ids.validade} className="block text-sm font-medium">

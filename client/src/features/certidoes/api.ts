@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { chaves } from '@/lib/chaves'
-import { listarCertidoes, renovarCertidao, type RenovacaoDTO } from '@/services/certidoes'
+import {
+  criarCertidao,
+  listarCertidoes,
+  renovarCertidao,
+  type NovaCertidaoDTO,
+  type RenovacaoDTO,
+} from '@/services/certidoes'
 import type { CertidaoDTO, CertidaoStatus } from '@/services/dto'
 
 /**
@@ -37,6 +43,19 @@ export function useRenovarCertidao() {
         lista && ordenarPorUrgencia(lista.map((c) => (c.id === renovada.id ? renovada : c))),
       )
       // Confirma com o back em segundo plano, sem segurar o formulário aberto até a lista voltar.
+      void queryClient.invalidateQueries({ queryKey: chaves.certidoes })
+    },
+  })
+}
+
+/** POST /v1/certidoes. A certidão nova entra na lista na mesma hora, na ordem de urgência. */
+export function useCriarCertidao() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (dados: NovaCertidaoDTO) => criarCertidao(dados),
+    meta: { sucesso: 'Certidão enviada.', silenciarErro: true },
+    onSuccess: (criada) => {
+      queryClient.setQueryData<CertidaoDTO[]>(chaves.certidoes, (lista) => lista && ordenarPorUrgencia([...lista, criada]))
       void queryClient.invalidateQueries({ queryKey: chaves.certidoes })
     },
   })

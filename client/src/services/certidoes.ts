@@ -25,3 +25,21 @@ export function renovarCertidao({ certidaoId, arquivo, validade }: RenovacaoDTO)
     }),
   )
 }
+
+export type NovaCertidaoDTO = { nome: string; arquivo: File; validade: string }
+
+/** POST /v1/certidoes, com o tipo da certidão (`nome`), o arquivo e a validade (multipart). */
+export function criarCertidao({ nome, arquivo, validade }: NovaCertidaoDTO): Promise<CertidaoDTO> {
+  return desembrulhar(
+    api.POST('/v1/certidoes', {
+      body: { nome, arquivo: arquivo as unknown as string, validade },
+      bodySerializer: (corpo) => {
+        const dados = new FormData()
+        dados.append('nome', corpo.nome)
+        dados.append('arquivo', corpo.arquivo as unknown as Blob)
+        dados.append('validade', corpo.validade)
+        return dados
+      },
+    }),
+  )
+}
