@@ -1,13 +1,15 @@
-# Formato do serviço de API que já existe no Render.
-# Não use este arquivo para criar um segundo serviço: o plano gratuito é um só.
+# Serviço de API que já está no Render. O nome é o do painel: LicitaRadar.
+# Não aplique este arquivo como blueprint novo: o plano gratuito é um só e isso abriria uma segunda API.
+# O Auto-Deploy do painel está em "After CI Checks Pass", o mesmo que autoDeployTrigger abaixo.
 # Valores secretos ficam no painel do Render (sync: false). Nenhum deles está aqui.
 
 services:
   - type: web
-    name: licitaradar-api
+    name: LicitaRadar
     runtime: docker
     plan: free
     branch: main
+    autoDeployTrigger: checksPass
     dockerfilePath: ./server/Dockerfile.render
     dockerContext: ./server
     healthCheckPath: /healthz
