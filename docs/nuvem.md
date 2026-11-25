@@ -22,7 +22,20 @@ Nenhuma dessas contas é o JSON do Admin SDK usado pela API. Um índice novo pod
 
 ## Render
 
-O `render.yaml` na raiz descreve a API que já está no ar: imagem `server/Dockerfile.render`, contexto `server/`, plano free, health check `/healthz`, branch `main`. Ele não cria outro serviço. Aplicar este arquivo como blueprint novo abriria uma segunda API.
+O `render.yaml` na raiz descreve a API que já está no ar, com o nome do painel (`LicitaRadar`): imagem `server/Dockerfile.render`, contexto `server/`, plano free, health check `/healthz`, branch `main`. Ele não cria outro serviço. Aplicar este arquivo como blueprint novo abriria uma segunda API.
+
+O Auto-Deploy do painel está em **After CI Checks Pass**. O arquivo repete isso com `autoDeployTrigger: checksPass`. O Render só inicia o deploy da API quando os checks daquele commit na `main` passam. Conclusão `success`, `neutral` ou `skipped` conta como passou. Zero checks, ou qualquer outra conclusão, não publica.
+
+O Render não escolhe quais checks espera. A porta da API são os seis jobs do workflow `CI`:
+
+- `gitleaks`
+- `client (lint + build + test)`
+- `playwright (mock)`
+- `firestore rules (test:int)`
+- `server (lint + build)`
+- `docker compose config`
+
+`Deploy`, `Hosting preview`, `Smoke test` e `Ingestão PNCP` não são essa porta. No primeiro merge, olhe **Events** do serviço. Se o CI já está verde e o evento continua esperando o `Smoke test`, pare: o smoke espera a API nova e o Render espera o smoke.
 
 Variáveis no serviço:
 
@@ -36,7 +49,7 @@ Variáveis no serviço:
 
 `FIRESTORE_EMULATOR_HOST` e `FIREBASE_AUTH_EMULATOR_HOST` não existem neste serviço. Com elas definidas, a API fala com um emulador que não está lá e o `/readyz` responde 503.
 
-O health check da plataforma é `/healthz`. O `/readyz` serve para o smoke test e para monitorar o Firestore; não use `/readyz` como health check do Render.
+O health check da plataforma é `/healthz`. No Render o corpo inclui `commit`, o SHA que a plataforma coloca em `RENDER_GIT_COMMIT`. Localmente essa variável não existe e o corpo continua `{"status":"ok"}`. O `/readyz` serve para o smoke test e para monitorar o Firestore; não use `/readyz` como health check do Render.
 
 O front não roda no Render. O build de produção usa as variables do GitHub `VITE_API_URL`, `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN` e `VITE_FIREBASE_PROJECT_ID`, com `VITE_API_MOCK=false`.
 

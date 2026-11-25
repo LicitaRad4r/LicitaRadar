@@ -22,8 +22,16 @@ on:
       api_url:
         description: "URL da API (vazio = variável API_URL)"
         required: false
+      commit:
+        description: "SHA esperado no /healthz (vazio = só HTTP 200)"
+        required: false
   # Também pode ser chamado como último passo do próprio workflow de deploy.
   workflow_call:
+    inputs:
+      commit:
+        description: "SHA esperado no /healthz (vazio = só HTTP 200)"
+        required: false
+        type: string
  
 concurrency:
   group: smoke-test
@@ -33,7 +41,8 @@ jobs:
   smoke:
     name: smoke test
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # 10 min de espera pelo SHA, mais as outras duas verificações e a folga do job.
+    timeout-minutes: 20
     # Só roda se o deploy deu certo (para workflow_run); nos outros gatilhos sempre roda.
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     steps:
@@ -44,5 +53,8 @@ jobs:
         env:
           WEB_URL: ${{ inputs.web_url || vars.WEB_URL }}
           API_URL: ${{ inputs.api_url || vars.API_URL }}
+          # No deploy da main, o SHA é o commit que o workflow Deploy acabou de publicar.
+          # Disparo manual sem esse campo continua só conferindo HTTP 200.
+          SMOKE_COMMIT: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.commit || '' }}
         run: bash scripts/smoke-test.sh
  

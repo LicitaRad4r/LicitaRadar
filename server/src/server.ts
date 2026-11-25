@@ -38,6 +38,7 @@ const app = buildApp({
   acompanhamentos: { repo: acompanhamentoRepoFirestore(), editais: editalLeituraFirestore() },
   tokenJob: process.env.INGEST_JOB_TOKEN,
   prontidao: verificarFirestore,
+  commit: process.env.RENDER_GIT_COMMIT,
   ingestao: () =>
     executarIngestao({
       repo: ingestaoRepoFirestore(),

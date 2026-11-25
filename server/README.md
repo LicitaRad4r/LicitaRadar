@@ -29,17 +29,19 @@ O contrato (OpenAPI 3.1, versão 0.3, Checkpoint 2) está em [`openapi.yaml`](./
 - Validar (na raiz): `npx @redocly/cli lint server/openapi.yaml`
 - Visualizar: cole o conteúdo em https://editor.swagger.io
 
-Convenções: rotas de negócio sob `/v1`, autenticadas com Bearer (ID token do Firebase Auth); `/health`, `/healthz` e `/readyz` são públicos (sem dados); os dados são sempre da empresa do token; erros seguem o schema `Erro`.
+Convenções: rotas de negócio sob `/v1`, autenticadas com Bearer (ID token do Firebase Auth); `/health`, `/healthz` e `/readyz` são públicos (sem dados de usuário); os dados são sempre da empresa do token; erros seguem o schema `Erro`.
 
 Todo acesso a dados passa pela API: o navegador nunca lê nem escreve direto no Firestore (regras deny-all). O usuário se identifica pelos claims `empresaId` e `role` do ID token.
 
 ## Saúde (`/healthz` e `/readyz`)
-Públicas, sem token e sem dados. Ficam fora do contrato OpenAPI do front, assim como `/health`.
+Públicas, sem token e sem dados de usuário. Ficam fora do contrato OpenAPI do front, assim como `/health`.
 
 | Rota | O que diz | Firestore ok | Firestore fora do ar (ou sem credencial) |
 | ---- | --------- | ------------ | ---------------------------------------- |
 | `GET /healthz` | a API está de pé; não depende de nada e não lê o Firestore | `200 {"status":"ok"}` | `200 {"status":"ok"}` |
 | `GET /readyz` | a API está pronta: também consulta o Firestore | `200 {"status":"ready"}` | `503 {"status":"unavailable"}` (responde em até 3 s; o corpo nunca traz o motivo) |
+
+No Render, `GET /healthz` também devolve o SHA do deploy: `200 {"status":"ok","commit":"<sha>"}`. A variável é `RENDER_GIT_COMMIT`, definida pela plataforma. No Compose ela não existe, então o `commit` fica de fora. Um valor que não seja um SHA de 7 a 40 caracteres hex também fica de fora.
 
 Custo: `/healthz` não lê nada; `/readyz` lê no máximo 1 documento de `editais` por chamada (um monitor a cada 5 min dá ~288 leituras por dia, bem abaixo da cota gratuita do Firestore).
 
@@ -54,7 +56,7 @@ curl -i http://localhost:3333/readyz    # 503
 docker compose start firebase
 ```
 
-Na hospedagem (Render): configure o *Health Check Path* como `/healthz`. Use o `/readyz` só para monitorar (UptimeRobot), não como health check da plataforma: se o Firestore cair, o Render poderia reiniciar uma API que não tem defeito. O workflow `Smoke test` (`scripts/smoke-test.sh`) confere as duas rotas na URL pública.
+Na hospedagem (Render): o *Health Check Path* é `/healthz`. Use o `/readyz` só para monitorar (UptimeRobot), não como health check da plataforma: se o Firestore cair, o Render poderia reiniciar uma API que não tem defeito. O workflow `Smoke test` (`scripts/smoke-test.sh`), depois do `Deploy` na `main`, espera até 10 minutos o `/healthz` devolver o SHA daquele commit. Sem SHA (teste manual), ele só confere HTTP 200.
 
 Testes: `tests/unit/ingestao.test.ts` (as rotas, com a dependência simulada) e `tests/unit/prontidao.test.ts` (o `verificarFirestore`: resposta, falha, timeout de 3 s e credencial inválida).
 

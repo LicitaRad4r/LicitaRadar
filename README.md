@@ -91,7 +91,7 @@ O CI também roda, em jobs separados:
 | Índices do kanban | `firestore.indexes.json` |
 | Preview do front, um canal por PR (7 dias) | `.github/workflows/hosting-preview.yml` |
 | Site, regras e índices depois do CI verde na `main` | `.github/workflows/deploy.yml` |
-| Smoke test depois desse deploy | `.github/workflows/smoke-test.yml` |
+| Smoke test depois desse deploy, no SHA publicado | `.github/workflows/smoke-test.yml` e `scripts/smoke-test.sh` |
 | API no Render | `render.yaml` e [`docs/nuvem.md`](docs/nuvem.md) |
 | Alertas e p95 | [`docs/operacao/alertas.md`](docs/operacao/alertas.md) |
 | Variáveis locais, sem segredo | `.env.example` e `client/.env.example` |
@@ -123,3 +123,25 @@ Até a Semana 4 tudo roda **só no computador** (Compose + emuladores). Evidênc
 - Ninguém faz push direto na `main`: crie uma branch e abra um Pull Request.
 - O PR precisa de 1 aprovação e do CI verde para entrar.
 - Nunca commite `.env`, senhas ou chaves.
+- O caminho até o ar está em [Do pull request ao ar](#do-pull-request-ao-ar).
+
+## Do pull request ao ar
+
+1. A branch abre um pull request. A `main` não recebe push direto.
+2. O workflow `CI` roda no PR. A proteção da `main` exige estes seis checks, com o nome igual ao do job:
+   - `gitleaks`
+   - `client (lint + build + test)`
+   - `playwright (mock)`
+   - `firestore rules (test:int)`
+   - `server (lint + build)`
+   - `docker compose config`
+3. Com o CI verde, o workflow `Hosting preview` publica um canal de 7 dias e comenta o link no PR.
+4. O merge entra na `main`. A regra do GitHub exige pull request e os seis checks acima. O repositório de produto, [`LicitaRad4r/documentation`](https://github.com/LicitaRad4r/documentation), também só recebe mudança na `main` por pull request.
+5. O `CI` roda de novo no commit da `main`.
+6. Com esse CI verde, o workflow `Deploy` publica o front em `https://licitaradar-13047.web.app` e as regras e índices do Firestore.
+7. O Render publica a API desse mesmo commit só depois que os checks passam. No painel do serviço `LicitaRadar` o Auto-Deploy está em **After CI Checks Pass**, e o `render.yaml` tem `autoDeployTrigger: checksPass`. O health check continua `/healthz`.
+8. O workflow `Smoke test` roda depois do `Deploy`. Ele passa quando as três coisas são verdade ao mesmo tempo: o front responde 200, o `/readyz` responde 200, e o `/healthz` responde 200 com `commit` igual ao SHA da `main`. A espera por esse SHA é de até 10 minutos, o tempo do build e do cold start no plano free.
+
+O Render não filtra a lista de checks. `Deploy`, `Hosting preview`, `Smoke test` e `Ingestão PNCP` ficam de fora da proteção da `main` e não são a porta da API. No primeiro merge, abra **Events** do serviço. Se o CI já está verde e o evento continua esperando o `Smoke test`, o smoke está esperando a API nova e o Render está esperando o smoke.
+
+Um commit que chegue na `main` com um desses seis checks vermelho não gera deploy da API. O **Events** mostra o commit sem deploy novo.

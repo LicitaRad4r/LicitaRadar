@@ -35,6 +35,8 @@ export interface Dependencias {
   ingestao?: () => Promise<ResultadoIngestao>
   /** Verifica as dependências para o `/readyz` (ex.: Firestore). Lança erro se não estiver pronto. */
   prontidao?: () => Promise<void>
+  /** SHA do git publicado. No Render vem de RENDER_GIT_COMMIT. Localmente fica vazio. */
+  commit?: string
   /** Origens extras do front (`CORS_ORIGENS`). O Hosting deste projeto e o Vite local entram sempre. */
   corsOrigens?: string[]
   logger?: boolean
@@ -51,6 +53,12 @@ declare module 'fastify' {
 
 /** Prefixos servidos: `/v1` (contrato) e sem prefixo (plano do CP2 e testes do QA). */
 const PREFIXOS = ['/v1', '']
+
+/** SHA de git (7 a 40 hex). Qualquer outro valor fica de fora do /healthz. */
+function commitPublicado(valor: string | undefined): string | undefined {
+  const commit = valor?.trim().toLowerCase() ?? ''
+  return /^[0-9a-f]{7,40}$/.test(commit) ? commit : undefined
+}
 
 /** Monta a API sem abrir porta (usado pelo servidor e pelos testes). */
 export function buildApp(deps: Dependencias): FastifyInstance {
@@ -90,8 +98,12 @@ export function buildApp(deps: Dependencias): FastifyInstance {
 
   app.get('/health', async () => ({ status: 'ok', timestamp: agora().toISOString() }))
   // Saúde para a plataforma de hospedagem: `/healthz` = a API está de pé; `/readyz` = e o Firestore responde.
-  // Públicas, sem dados e sem detalhes de erro no corpo.
-  app.get('/healthz', async () => ({ status: 'ok' }))
+  // Públicas, sem dados de usuário e sem detalhes de erro no corpo.
+  // No Render, `/healthz` inclui o SHA do git (RENDER_GIT_COMMIT). Localmente esse campo fica de fora.
+  app.get('/healthz', async () => {
+    const commit = commitPublicado(deps.commit)
+    return commit ? { status: 'ok', commit } : { status: 'ok' }
+  })
   app.get('/readyz', async (req, reply) => {
     try {
       await deps.prontidao?.()
