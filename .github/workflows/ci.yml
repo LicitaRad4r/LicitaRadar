@@ -43,6 +43,8 @@ jobs:
           cache: npm
           cache-dependency-path: client/package-lock.json
       - run: npm ci
+      - name: Audit de dependências de produção
+        run: npm audit --omit=dev --audit-level=high
       - run: npm run lint
       - run: npm run build
       # Node 22: no 24 o FormData do jsdom quebra o teste de renovação de certidão.
@@ -68,6 +70,7 @@ jobs:
       - run: npm run test:e2e -- --project=chromium
 
   # Deny-all do Firestore. O teste fala com 127.0.0.1:8080 e carrega firestore.rules.
+  # Node 22, a mesma versão da imagem de produção.
   firestore-rules:
     name: firestore rules (test:int)
     runs-on: ubuntu-latest
@@ -76,7 +79,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
           cache: npm
           cache-dependency-path: server/package-lock.json
       - uses: actions/setup-java@v4
@@ -100,10 +103,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          # A mesma versão de server/Dockerfile.render.
+          node-version: 22
           cache: npm
           cache-dependency-path: server/package-lock.json
       - run: npm ci
+      - name: Audit de dependências de produção
+        run: npm audit --omit=dev --audit-level=high
       - run: npm run lint
       - run: npm run build
       - run: npm run test:unit
@@ -116,3 +122,22 @@ jobs:
       - name: Criar .env a partir do example
         run: cp .env.example .env
       - run: docker compose config --quiet
+
+  # Constrói a mesma imagem que o Render publica e falha em CRITICAL ou HIGH.
+  imagem:
+    name: imagem (trivy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build da imagem de produção
+        run: docker build -f server/Dockerfile.render -t licitaradar-api:ci server
+      - name: Instalar Trivy
+        env:
+          TRIVY_VERSION: 0.76.2
+        run: |
+          curl -sSfL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin trivy
+          trivy --version
+      - name: Varrer CRITICAL e HIGH
+        run: trivy image --scanners vuln --severity CRITICAL,HIGH --exit-code 1 --ignorefile .trivyignore licitaradar-api:ci

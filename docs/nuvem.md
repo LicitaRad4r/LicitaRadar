@@ -24,6 +24,8 @@ Nenhuma dessas contas é o JSON do Admin SDK usado pela API. Um índice novo pod
 
 O `render.yaml` na raiz descreve a API que já está no ar: imagem `server/Dockerfile.render`, contexto `server/`, plano free, health check `/healthz`, branch `main`. Ele não cria outro serviço. Aplicar este arquivo como blueprint novo abriria uma segunda API.
 
+A imagem usa Node 22, a mesma versão dos jobs do server no CI, e o processo roda como o usuário `node`. O job `imagem (trivy)` constrói essa imagem e falha em vulnerabilidade `CRITICAL` ou `HIGH`. Os jobs do client e do server rodam `npm audit --omit=dev --audit-level=high`. O que a imagem base ainda carrega sem correção que a gente possa aplicar está em [`docs/Testes/excecoes-seguranca.md`](Testes/excecoes-seguranca.md) e no `.trivyignore`, com prazo para rever.
+
 Variáveis no serviço:
 
 | Variável | Valor |

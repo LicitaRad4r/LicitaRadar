@@ -80,6 +80,8 @@ O CI também roda, em jobs separados:
 
 - Playwright em modo mock, só Chromium: `cd client && npx playwright install chromium && npm run test:e2e -- --project=chromium`
 - Regras do Firestore no emulador (Java 21). Na raiz, com as deps do `server` já instaladas: `npx firebase-tools@15.33.0 --project demo-licitaradar emulators:exec --only firestore "npm run test:int --prefix server"`
+- `npm audit --omit=dev --audit-level=high` nos jobs do client e do server
+- A imagem `server/Dockerfile.render` no Trivy (`imagem (trivy)`), que falha em `CRITICAL` e `HIGH`
 
 ## Onde fica a configuração de nuvem
 
